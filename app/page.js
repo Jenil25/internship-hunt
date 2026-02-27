@@ -1,66 +1,155 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+import { getStats } from '@/lib/db';
 
-export default function Home() {
+export const dynamic = 'force-dynamic';
+
+function getScoreClass(score) {
+  if (score >= 80) return 'high';
+  if (score >= 60) return 'mid';
+  return 'low';
+}
+
+function getStatusBadge(status) {
+  const map = {
+    resume_generated: { class: 'badge-success', label: 'Resume Generated' },
+    scored: { class: 'badge-info', label: 'Scored' },
+    ineligible: { class: 'badge-error', label: 'Ineligible' },
+  };
+  const s = map[status] || { class: 'badge-neutral', label: status };
+  return <span className={`badge ${s.class}`}>{s.label}</span>;
+}
+
+export default async function Dashboard() {
+  let stats;
+  try {
+    stats = await getStats();
+  } catch (e) {
+    return (
+      <div>
+        <div className="page-header">
+          <h2>Dashboard</h2>
+          <p>Overview of your internship hunt pipeline</p>
+        </div>
+        <div className="status-message error">
+          ⚠️ Could not connect to database. Make sure PostgreSQL is running.
+        </div>
+      </div>
+    );
+  }
+
+  const { totals, scoreDistribution, recentJobs } = stats;
+  const maxCount = Math.max(...scoreDistribution.map(d => parseInt(d.count)), 1);
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.js file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div>
+      <div className="page-header">
+        <h2>Dashboard</h2>
+        <p>Overview of your internship hunt pipeline</p>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat-card accent">
+          <div className="stat-label">Total Jobs</div>
+          <div className="stat-value">{totals.total_jobs}</div>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="stat-card success">
+          <div className="stat-label">Resumes Generated</div>
+          <div className="stat-value">{totals.resumes_generated}</div>
         </div>
-      </main>
+        <div className="stat-card warning">
+          <div className="stat-label">Avg Score</div>
+          <div className="stat-value">{totals.avg_score || '—'}</div>
+        </div>
+        <div className="stat-card error">
+          <div className="stat-label">Max Score</div>
+          <div className="stat-value">{totals.max_score || '—'}</div>
+        </div>
+      </div>
+
+      <div className="grid-2col">
+        <div className="card">
+          <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600 }}>Score Distribution</h3>
+          {scoreDistribution.length > 0 ? (
+            <div className="distribution-chart" style={{ paddingBottom: '32px' }}>
+              {scoreDistribution.map((d) => (
+                <div
+                  key={d.range}
+                  className="distribution-bar"
+                  style={{ height: `${(parseInt(d.count) / maxCount) * 100}%` }}
+                >
+                  <span className="bar-count">{d.count}</span>
+                  <span className="bar-label">{d.range}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state" style={{ padding: '32px' }}>
+              <p>No scored jobs yet</p>
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600 }}>Quick Actions</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <a href="/upload" className="btn btn-primary" style={{ justifyContent: 'center' }}>
+              📤 Upload Job Description
+            </a>
+            <a href="/jobs" className="btn btn-secondary" style={{ justifyContent: 'center' }}>
+              💼 View All Jobs
+            </a>
+            <a href="/resumes" className="btn btn-secondary" style={{ justifyContent: 'center' }}>
+              📄 View Resumes
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div className="table-container" style={{ marginTop: '32px' }}>
+        <div className="table-header">
+          <h3>Recent Jobs</h3>
+          <a href="/jobs" className="btn btn-ghost btn-sm">View All →</a>
+        </div>
+        {recentJobs.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Role</th>
+                <th>Score</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentJobs.map((job) => (
+                <tr key={job.id}>
+                  <td>
+                    <a href={`/jobs/${job.id}`} className="job-link" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {job.company}
+                    </a>
+                  </td>
+                  <td>{job.role}</td>
+                  <td>
+                    <span className={`score-pill score-${getScoreClass(job.score)}`}>
+                      {job.score}
+                    </span>
+                  </td>
+                  <td>{getStatusBadge(job.status)}</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
+                    {new Date(job.created_at).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="empty-state">
+            <div className="empty-icon">📭</div>
+            <h3>No jobs yet</h3>
+            <p>Upload a job description to get started</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
