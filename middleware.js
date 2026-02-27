@@ -1,24 +1,12 @@
-import { auth } from '@/lib/auth';
+/**
+ * Middleware — runs in the Edge Runtime.
+ * Only imports the edge-safe auth config (no pg/crypto dependencies).
+ */
 
-export default auth((req) => {
-  const { pathname } = req.nextUrl;
+import NextAuth from 'next-auth';
+import { authConfig } from '@/lib/auth.config';
 
-  // Public routes: login, signup, API auth endpoints
-  const isPublicRoute =
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/signup') ||
-    pathname.startsWith('/api/auth');
-
-  if (!req.auth && !isPublicRoute) {
-    const loginUrl = new URL('/login', req.url);
-    return Response.redirect(loginUrl);
-  }
-
-  // Redirect authenticated users away from login/signup
-  if (req.auth && (pathname === '/login' || pathname === '/signup')) {
-    return Response.redirect(new URL('/', req.url));
-  }
-});
+export default NextAuth(authConfig).auth;
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
