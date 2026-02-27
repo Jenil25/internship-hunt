@@ -9,6 +9,7 @@ export default function ProfileEditPage() {
   const [status, setStatus] = useState(null);
   const [profile, setProfile] = useState(null);
   const [activeTab, setActiveTab] = useState('info');
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
 
   useEffect(() => {
     fetch('/api/profile')
@@ -188,6 +189,73 @@ export default function ProfileEditPage() {
     }));
   };
 
+  const addEducation = () => {
+    setProfile(prev => ({
+      ...prev,
+      profile_json: {
+        ...prev.profile_json,
+        profile: {
+          ...prev.profile_json.profile,
+          education: [...(prev.profile_json.profile.education || []), {
+            institution: '', degree: '', gpa: '', grad_date: ''
+          }]
+        }
+      }
+    }));
+  };
+
+  const removeEducation = (index) => {
+    setProfile(prev => {
+      const newEdu = [...(prev.profile_json.profile.education || [])];
+      newEdu.splice(index, 1);
+      return { 
+        ...prev, 
+        profile_json: { 
+          ...prev.profile_json, 
+          profile: {
+            ...prev.profile_json.profile,
+            education: newEdu
+          }
+        } 
+      };
+    });
+  };
+
+  const handleTemplateUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.tex')) {
+      setStatus({ type: 'error', message: 'Only .tex files are allowed' });
+      return;
+    }
+
+    setUploadingTemplate(true);
+    setStatus(null);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/template/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (res.ok) {
+        setStatus({ type: 'success', message: 'Template uploaded successfully!' });
+      } else {
+        const err = await res.json();
+        setStatus({ type: 'error', message: err.error || 'Upload failed' });
+      }
+    } catch (err) {
+      setStatus({ type: 'error', message: err.message });
+    }
+    
+    setUploadingTemplate(false);
+    e.target.value = ''; // Reset input
+  };
+
   const addExperience = () => {
     setProfile(prev => ({
       ...prev,
@@ -236,6 +304,7 @@ export default function ProfileEditPage() {
     { key: 'projects', label: '🚀 Projects', icon: '🚀' },
     { key: 'skills', label: '🛠️ Skills', icon: '🛠️' },
     { key: 'config', label: '⚙️ Config', icon: '⚙️' },
+    { key: 'template', label: '📄 Template', icon: '📄' },
   ];
 
   return (
@@ -307,6 +376,9 @@ export default function ProfileEditPage() {
             <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px', marginTop: '24px' }}>Education</h3>
             {education.map((edu, i) => (
               <div key={i} style={{ padding: '16px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => removeEducation(i)} style={{ color: 'var(--error)' }}>✕ Remove</button>
+                </div>
                 <div className="form-group">
                   <label>Institution</label>
                   <input className="form-input" value={edu.institution || ''} onChange={e => {
@@ -343,6 +415,7 @@ export default function ProfileEditPage() {
                 </div>
               </div>
             ))}
+            <button className="btn btn-secondary btn-sm" onClick={addEducation} style={{ marginTop: '12px' }}>+ Add Education</button>
           </div>
         </div>
       )}
@@ -530,6 +603,35 @@ export default function ProfileEditPage() {
                   When enabled, AI generates a tailored cover letter for each qualifying job
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template Tab */}
+      {activeTab === 'template' && (
+        <div className="card">
+          <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>Custom Resume Template</h3>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '14px' }}>
+            Upload a master <code>.tex</code> template. Our AI injects your profile data into this template using specific markers. 
+            <strong>You must use the same markers as the default template!</strong>
+          </p>
+          
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, padding: '24px', border: '2px dashed var(--border-accent)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+               <input 
+                 type="file" 
+                 accept=".tex" 
+                 id="template-upload" 
+                 style={{ display: 'none' }} 
+                 onChange={handleTemplateUpload} 
+               />
+               <label htmlFor="template-upload" className="btn btn-primary" style={{ cursor: 'pointer', display: 'inline-flex' }}>
+                 {uploadingTemplate ? 'Uploading...' : '📤 Upload .tex Template'}
+               </label>
+               <div style={{ marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                 Overwrites your current template in S3
+               </div>
             </div>
           </div>
         </div>

@@ -1,6 +1,8 @@
 import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { defaultTemplate } from '@/lib/defaultTemplate';
 
 export async function POST(request) {
   try {
@@ -51,6 +53,26 @@ export async function POST(request) {
         }),
       ]
     );
+
+    // Copy default template to S3
+    try {
+      const s3Client = new S3Client({
+        region: process.env.AWS_REGION || 'us-east-1',
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        },
+      });
+
+      await s3Client.send(new PutObjectCommand({
+        Bucket: process.env.AWS_S3_BUCKET,
+        Key: `templates/${email}/master_resume.tex`,
+        Body: defaultTemplate,
+        ContentType: 'application/x-tex',
+      }));
+    } catch (s3Err) {
+      console.error('Failed to upload default template:', s3Err);
+    }
 
     return NextResponse.json({ success: true, user: { id: user.id, name: user.name, email: user.email } }, { status: 201 });
   } catch (err) {

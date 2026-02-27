@@ -1,5 +1,6 @@
 import "./globals.css";
 import AuthProvider from "./components/AuthProvider";
+import LogoutButton from "./components/LogoutButton";
 import { auth } from "@/lib/auth";
 
 export const metadata = {
@@ -77,9 +78,7 @@ function Sidebar({ user }) {
                 <div className="user-email">{user.email}</div>
               </div>
             </div>
-            <form action="/api/auth/signout" method="POST">
-              <button type="submit" className="btn-signout">Sign Out</button>
-            </form>
+            <LogoutButton />
           </>
         )}
         <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
