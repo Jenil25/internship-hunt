@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 
 export default function UploadPage() {
+  const { data: session } = useSession();
   const [mode, setMode] = useState('pdf'); // 'pdf' or 'text'
   const [file, setFile] = useState(null);
   const [jdText, setJdText] = useState('');
@@ -32,7 +34,7 @@ export default function UploadPage() {
       if (mode === 'pdf' && file) {
         const formData = new FormData();
         formData.append('profile_name', 'general');
-        formData.append('user_email', 'jenilmahy25@gmail.com');
+        formData.append('user_email', session?.user?.email || '');
         formData.append('source', source);
         formData.append('jd_file', file);
         
@@ -53,7 +55,7 @@ export default function UploadPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             profile_name: 'general',
-            user_email: 'jenilmahy25@gmail.com',
+            user_email: session?.user?.email || '',
             source: source,
             jd_text: jdText,
           }),

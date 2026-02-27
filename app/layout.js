@@ -1,11 +1,16 @@
 import "./globals.css";
+import AuthProvider from "./components/AuthProvider";
+import { auth } from "@/lib/auth";
 
 export const metadata = {
   title: "Internship Hunt Dashboard",
   description: "AI-powered job matching and resume tailoring pipeline",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const session = await auth();
+  const isAuthPage = false; // Layout renders for all, middleware handles redirects
+
   return (
     <html lang="en">
       <head>
@@ -14,18 +19,26 @@ export default function RootLayout({ children }) {
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body>
-        <div className="app-layout">
-          <Sidebar />
-          <main className="main-content">
-            {children}
-          </main>
-        </div>
+        <AuthProvider>
+          {session ? (
+            <div className="app-layout">
+              <Sidebar user={session.user} />
+              <main className="main-content">
+                {children}
+              </main>
+            </div>
+          ) : (
+            <main className="main-content" style={{ marginLeft: 0 }}>
+              {children}
+            </main>
+          )}
+        </AuthProvider>
       </body>
     </html>
   );
 }
 
-function Sidebar() {
+function Sidebar({ user }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -54,8 +67,22 @@ function Sidebar() {
           <span>Profile</span>
         </a>
       </nav>
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', marginTop: 'auto' }}>
-        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+      <div className="sidebar-user">
+        {user && (
+          <>
+            <div className="user-info">
+              <div className="user-avatar">{user.name?.[0]?.toUpperCase() || '?'}</div>
+              <div className="user-details">
+                <div className="user-name">{user.name}</div>
+                <div className="user-email">{user.email}</div>
+              </div>
+            </div>
+            <form action="/api/auth/signout" method="POST">
+              <button type="submit" className="btn-signout">Sign Out</button>
+            </form>
+          </>
+        )}
+        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
           Powered by n8n + Gemini
         </div>
       </div>

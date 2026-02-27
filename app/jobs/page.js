@@ -1,4 +1,5 @@
 import { getJobs } from '@/lib/db';
+import { auth } from '@/lib/auth';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,7 @@ function getMatchBadge(level) {
 }
 
 export default async function JobsPage({ searchParams }) {
+  const session = await auth();
   const params = await searchParams;
   const status = params?.status || null;
   const minScore = params?.minScore ? parseInt(params.minScore) : null;
@@ -45,7 +47,7 @@ export default async function JobsPage({ searchParams }) {
   let jobs = [];
   let error = null;
   try {
-    jobs = await getJobs({ status, minScore });
+    jobs = await getJobs(session.user.email, { status, minScore });
   } catch (e) {
     error = e.message;
   }

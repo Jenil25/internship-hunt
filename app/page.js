@@ -1,4 +1,5 @@
 import { getStats } from '@/lib/db';
+import { auth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,9 +20,10 @@ function getStatusBadge(status) {
 }
 
 export default async function Dashboard() {
+  const session = await auth();
   let stats;
   try {
-    stats = await getStats();
+    stats = await getStats(session.user.email);
   } catch (e) {
     return (
       <div>

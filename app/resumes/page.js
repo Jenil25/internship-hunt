@@ -1,9 +1,11 @@
 import { query } from '@/lib/db';
+import { auth } from '@/lib/auth';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ResumesPage() {
+  const session = await auth();
   let jobs = [];
   let error = null;
   
@@ -11,9 +13,9 @@ export default async function ResumesPage() {
     jobs = await query(`
       SELECT id, company, role, score, match_level, resume_file_path, created_at 
       FROM jobs 
-      WHERE status = 'resume_generated' AND resume_file_path IS NOT NULL
+      WHERE user_email = $1 AND status = 'resume_generated' AND resume_file_path IS NOT NULL
       ORDER BY created_at DESC
-    `);
+    `, [session.user.email]);
   } catch (e) {
     error = e.message;
   }

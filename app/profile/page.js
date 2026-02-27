@@ -1,18 +1,16 @@
-import { query } from '@/lib/db';
+import { getProfile } from '@/lib/db';
+import { auth } from '@/lib/auth';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProfilePage() {
+  const session = await auth();
   let profile = null;
   let error = null;
 
   try {
-    const rows = await query(
-      "SELECT id, user_email, profile_name, profile_json, updated_at FROM profiles WHERE user_email = $1 AND profile_name = $2",
-      ['jenilmahy25@gmail.com', 'general']
-    );
-    profile = rows[0] || null;
+    profile = await getProfile(session.user.email);
   } catch (e) {
     error = e.message;
   }
