@@ -1,6 +1,7 @@
 import "./globals.css";
 import AuthProvider from "./components/AuthProvider";
 import LogoutButton from "./components/LogoutButton";
+import MobileNav from "./components/MobileNav";
 import { auth } from "@/lib/auth";
 
 export const metadata = {
@@ -15,6 +16,7 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -22,12 +24,14 @@ export default async function RootLayout({ children }) {
       <body>
         <AuthProvider>
           {session ? (
-            <div className="app-layout">
-              <Sidebar user={session.user} />
-              <main className="main-content">
-                {children}
-              </main>
-            </div>
+            <MobileNav>
+              <div className="app-layout">
+                <Sidebar user={session.user} />
+                <main className="main-content">
+                  {children}
+                </main>
+              </div>
+            </MobileNav>
           ) : (
             <main className="main-content" style={{ marginLeft: 0 }}>
               {children}
