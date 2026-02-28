@@ -679,25 +679,39 @@ export default function ProfileEditPage() {
         <div className="card">
           <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>Custom Resume Template</h3>
           <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '14px' }}>
-            Upload a master <code>.tex</code> template. Our AI injects your profile data into this template using specific markers. 
-            <strong>You must use the same markers as the default template!</strong>
+            Upload your own <code>.tex</code> resume template. Our AI reads the LaTeX environments 
+            in your template and generates content that fits perfectly. Start by downloading the 
+            default template below as a reference.
           </p>
           
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-            <div style={{ flex: 1, padding: '24px', border: '2px dashed var(--border-accent)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-               <input 
-                 type="file" 
-                 accept=".tex" 
-                 id="template-upload" 
-                 style={{ display: 'none' }} 
-                 onChange={handleTemplateUpload} 
-               />
-               <label htmlFor="template-upload" className="btn btn-primary" style={{ cursor: 'pointer', display: 'inline-flex' }}>
-                 {uploadingTemplate ? 'Uploading...' : '📤 Upload .tex Template'}
-               </label>
-               <div style={{ marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
-                 Overwrites your current template in S3
-               </div>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            {/* Download */}
+            <div style={{ flex: 1, minWidth: '200px', padding: '24px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📥</div>
+              <a href="/api/template/download" download className="btn btn-secondary" style={{ display: 'inline-flex', textDecoration: 'none' }}>
+                Download Default Template
+              </a>
+              <div style={{ marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                Use this as a starting point for your own template
+              </div>
+            </div>
+
+            {/* Upload */}
+            <div style={{ flex: 1, minWidth: '200px', padding: '24px', border: '2px dashed var(--border-accent)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+              <div style={{ fontSize: '32px', marginBottom: '12px' }}>📤</div>
+              <input 
+                type="file" 
+                accept=".tex" 
+                id="template-upload" 
+                style={{ display: 'none' }} 
+                onChange={handleTemplateUpload} 
+              />
+              <label htmlFor="template-upload" className="btn btn-primary" style={{ cursor: 'pointer', display: 'inline-flex' }}>
+                {uploadingTemplate ? 'Uploading...' : 'Upload Custom Template'}
+              </label>
+              <div style={{ marginTop: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                Overwrites your current template in S3
+              </div>
             </div>
           </div>
         </div>
