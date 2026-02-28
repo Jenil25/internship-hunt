@@ -8,6 +8,7 @@ export default function UploadPage() {
   const [mode, setMode] = useState('pdf'); // 'pdf' or 'text'
   const [file, setFile] = useState(null);
   const [jdText, setJdText] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [source, setSource] = useState('nuworks');
   const [status, setStatus] = useState(null); // null | 'processing' | 'success' | 'error'
   const [message, setMessage] = useState('');
@@ -50,6 +51,11 @@ export default function UploadPage() {
           throw new Error(`Server returned ${res.status}`);
         }
       } else if (mode === 'text' && jdText.trim()) {
+        if (!companyName.trim()) {
+          setStatus('error');
+          setMessage('Company name is required when pasting text.');
+          return;
+        }
         const res = await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -57,6 +63,7 @@ export default function UploadPage() {
             profile_name: 'general',
             user_email: session?.user?.email || '',
             source: source,
+            company_name: companyName.trim(),
             jd_text: jdText,
           }),
         });
@@ -69,7 +76,7 @@ export default function UploadPage() {
         }
       } else {
         setStatus('error');
-        setMessage('Please provide a PDF file or paste job description text.');
+        setMessage('Please provide a PDF file, or fill in both the company name and job description text.');
         return;
       }
     } catch (error) {
@@ -81,6 +88,7 @@ export default function UploadPage() {
   const resetForm = () => {
     setFile(null);
     setJdText('');
+    setCompanyName('');
     setStatus(null);
     setMessage('');
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -155,17 +163,28 @@ export default function UploadPage() {
               )}
             </div>
           ) : (
-            <div className="form-group">
-              <label>Job Description</label>
-              <textarea
-                className="form-textarea"
-                placeholder="Paste the full job description here..."
-                value={jdText}
-                onChange={(e) => setJdText(e.target.value)}
-                style={{ minHeight: '280px' }}
-              />
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                {jdText.length} characters
+            <div>
+              <div className="form-group">
+                <label>Company Name *</label>
+                <input
+                  className="form-input"
+                  placeholder="e.g. Google, Amazon, Deloitte..."
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Job Description *</label>
+                <textarea
+                  className="form-textarea"
+                  placeholder="Paste the full job description here..."
+                  value={jdText}
+                  onChange={(e) => setJdText(e.target.value)}
+                  style={{ minHeight: '240px' }}
+                />
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                  {jdText.length} characters
+                </div>
               </div>
             </div>
           )}
