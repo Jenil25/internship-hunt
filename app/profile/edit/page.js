@@ -105,6 +105,66 @@ export default function ProfileEditPage() {
     }));
   };
 
+  const addSkillCategory = () => {
+    const name = prompt('Enter new skill category name (e.g. databases, cloud, testing):');
+    if (!name || !name.trim()) return;
+    const key = name.trim().toLowerCase().replace(/\s+/g, '_');
+    if (skills[key]) {
+      setStatus({ type: 'error', message: `Skill category "${key}" already exists` });
+      return;
+    }
+    setProfile(prev => ({
+      ...prev,
+      profile_json: {
+        ...prev.profile_json,
+        profile: {
+          ...prev.profile_json.profile,
+          skills: { ...prev.profile_json.profile.skills, [key]: [] }
+        }
+      }
+    }));
+  };
+
+  const removeSkillCategory = (category) => {
+    if (!confirm(`Remove the "${category.replace(/_/g, ' ')}" skill section?`)) return;
+    setProfile(prev => {
+      const newSkills = { ...prev.profile_json.profile.skills };
+      delete newSkills[category];
+      return {
+        ...prev,
+        profile_json: {
+          ...prev.profile_json,
+          profile: { ...prev.profile_json.profile, skills: newSkills }
+        }
+      };
+    });
+  };
+
+  const renameSkillCategory = (oldKey) => {
+    const newName = prompt('Rename this category to:', oldKey.replace(/_/g, ' '));
+    if (!newName || !newName.trim()) return;
+    const newKey = newName.trim().toLowerCase().replace(/\s+/g, '_');
+    if (newKey === oldKey) return;
+    if (skills[newKey]) {
+      setStatus({ type: 'error', message: `Skill category "${newKey}" already exists` });
+      return;
+    }
+    setProfile(prev => {
+      const oldSkills = prev.profile_json.profile.skills;
+      const newSkills = {};
+      for (const [k, v] of Object.entries(oldSkills)) {
+        newSkills[k === oldKey ? newKey : k] = v;
+      }
+      return {
+        ...prev,
+        profile_json: {
+          ...prev.profile_json,
+          profile: { ...prev.profile_json.profile, skills: newSkills }
+        }
+      };
+    });
+  };
+
   const updateExperience = (index, field, value) => {
     setProfile(prev => {
       const newExp = [...prev.profile_json.experience];
@@ -538,14 +598,20 @@ export default function ProfileEditPage() {
           <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>Skills (comma separated)</h3>
           {Object.entries(skills).map(([category, items]) => (
             <div className="form-group" key={category}>
-              <label>{category.replace(/_/g, ' ')}</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <label style={{ margin: 0, flex: 1 }}>{category.replace(/_/g, ' ')}</label>
+                <button className="btn btn-ghost btn-sm" onClick={() => renameSkillCategory(category)} style={{ fontSize: '12px', padding: '2px 8px' }} title="Rename">✏️</button>
+                <button className="btn btn-ghost btn-sm" onClick={() => removeSkillCategory(category)} style={{ fontSize: '12px', padding: '2px 8px', color: 'var(--error)' }} title="Remove">✕</button>
+              </div>
               <input
                 className="form-input"
                 value={(Array.isArray(items) ? items : []).join(', ')}
                 onChange={e => updateSkillCategory(category, e.target.value)}
+                placeholder="e.g. Python, JavaScript, Go"
               />
             </div>
           ))}
+          <button className="btn btn-secondary btn-sm" onClick={addSkillCategory} style={{ marginTop: '12px' }}>+ Add Skill Section</button>
           <div style={{ marginTop: '16px', padding: '12px', background: 'var(--info-bg)', borderRadius: 'var(--radius-md)', fontSize: '13px', color: 'var(--info)' }}>
             💡 These skills are what Gemini uses to match against job descriptions. Keep them up to date!
           </div>
