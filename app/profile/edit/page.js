@@ -574,6 +574,16 @@ export default function ProfileEditPage() {
                 <label>Tech Stack (comma separated)</label>
                 <input className="form-input" value={(proj.tech_stack || []).join(', ')} onChange={e => updateProject(i, 'tech_stack', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} />
               </div>
+              <div className="grid-2col">
+                <div className="form-group">
+                  <label>GitHub Links (comma separated, optional)</label>
+                  <input className="form-input" value={(proj.github_links || []).join(', ')} onChange={e => updateProject(i, 'github_links', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} placeholder="https://github.com/you/repo1, https://github.com/you/repo2" />
+                </div>
+                <div className="form-group">
+                  <label>Live URL (optional)</label>
+                  <input className="form-input" value={proj.live_url || ''} onChange={e => updateProject(i, 'live_url', e.target.value)} placeholder="https://myproject.com" />
+                </div>
+              </div>
               <div className="form-group">
                 <label>Bullet Points</label>
                 {(proj.bullet_points_pool || []).map((bp, j) => (
