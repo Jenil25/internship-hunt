@@ -1,6 +1,7 @@
 import { getProfile } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import Link from 'next/link';
+import ExportProfile from '@/app/components/ExportProfile';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,9 +60,12 @@ export default async function ProfilePage() {
           <h2>Profile</h2>
           <p>Your candidate profile used for resume generation</p>
         </div>
-        <Link href="/profile/edit" className="btn btn-primary">
-          ✏️ Edit Profile
-        </Link>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <ExportProfile />
+          <Link href="/profile/edit" className="btn btn-primary">
+            ✏️ Edit Profile
+          </Link>
+        </div>
       </div>
 
       {/* Identity Card */}
