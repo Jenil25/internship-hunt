@@ -2,6 +2,9 @@
 
 A **Next.js 15** web dashboard for tracking job applications processed by the [n8n Internship Hunt workflow](../n8n-local/). View match scores, download tailored resumes, manage application statuses, and edit your candidate profile.
 
+> [!NOTE]
+> The backend of this application is at: https://github.com/Jenil25/internship-hunt-workflow
+
 ## Quick Start
 
 ```bash
