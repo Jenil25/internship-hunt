@@ -1,7 +1,39 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+
+/**
+ * Input for comma-separated list fields (tech_stack, github_links, skills).
+ * Manages its own string state while editing so commas and spaces aren't eaten.
+ * Converts to/from array only on blur.
+ */
+function CommaSeparatedInput({ value = [], onChange, ...props }) {
+  const [text, setText] = useState(value.join(', '));
+  const focused = useRef(false);
+
+  // Sync display text from parent array when not focused
+  useEffect(() => {
+    if (!focused.current) {
+      setText(value.join(', '));
+    }
+  }, [value]);
+
+  return (
+    <input
+      {...props}
+      value={text}
+      onChange={e => setText(e.target.value)}
+      onFocus={() => { focused.current = true; }}
+      onBlur={() => {
+        focused.current = false;
+        const arr = text.split(',').map(s => s.trim()).filter(Boolean);
+        setText(arr.join(', '));
+        onChange(arr);
+      }}
+    />
+  );
+}
 
 export default function ProfileEditPage() {
   const [loading, setLoading] = useState(true);
@@ -519,7 +551,7 @@ export default function ProfileEditPage() {
               </div>
               <div className="form-group">
                 <label>Tech Stack (comma separated)</label>
-                <input className="form-input" value={(exp.tech_stack || []).join(', ')} onChange={e => updateExperience(i, 'tech_stack', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} />
+                <CommaSeparatedInput className="form-input" value={exp.tech_stack || []} onChange={arr => updateExperience(i, 'tech_stack', arr)} />
               </div>
               <div className="form-group">
                 <label>Bullet Points</label>
@@ -572,12 +604,12 @@ export default function ProfileEditPage() {
               </div>
               <div className="form-group">
                 <label>Tech Stack (comma separated)</label>
-                <input className="form-input" value={(proj.tech_stack || []).join(', ')} onChange={e => updateProject(i, 'tech_stack', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} />
+                <CommaSeparatedInput className="form-input" value={proj.tech_stack || []} onChange={arr => updateProject(i, 'tech_stack', arr)} />
               </div>
               <div className="grid-2col">
                 <div className="form-group">
                   <label>GitHub Links (comma separated, optional)</label>
-                  <input className="form-input" value={(proj.github_links || []).join(', ')} onChange={e => updateProject(i, 'github_links', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} placeholder="https://github.com/you/repo1, https://github.com/you/repo2" />
+                  <CommaSeparatedInput className="form-input" value={proj.github_links || []} onChange={arr => updateProject(i, 'github_links', arr)} placeholder="https://github.com/you/repo1, https://github.com/you/repo2" />
                 </div>
                 <div className="form-group">
                   <label>Live URL (optional)</label>
@@ -613,10 +645,21 @@ export default function ProfileEditPage() {
                 <button className="btn btn-ghost btn-sm" onClick={() => renameSkillCategory(category)} style={{ fontSize: '12px', padding: '2px 8px' }} title="Rename">✏️</button>
                 <button className="btn btn-ghost btn-sm" onClick={() => removeSkillCategory(category)} style={{ fontSize: '12px', padding: '2px 8px', color: 'var(--error)' }} title="Remove">✕</button>
               </div>
-              <input
+              <CommaSeparatedInput
                 className="form-input"
-                value={(Array.isArray(items) ? items : []).join(', ')}
-                onChange={e => updateSkillCategory(category, e.target.value)}
+                value={Array.isArray(items) ? items : []}
+                onChange={arr => {
+                  setProfile(prev => ({
+                    ...prev,
+                    profile_json: {
+                      ...prev.profile_json,
+                      profile: {
+                        ...prev.profile_json.profile,
+                        skills: { ...prev.profile_json.profile.skills, [category]: arr }
+                      }
+                    }
+                  }));
+                }}
                 placeholder="e.g. Python, JavaScript, Go"
               />
             </div>

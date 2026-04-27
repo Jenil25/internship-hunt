@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import StatusDropdown from '@/app/components/StatusDropdown';
 import CopyButton from '@/app/components/CopyButton';
+import ResumeViewer from '@/app/components/ResumeViewer';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,6 +99,16 @@ export default async function JobDetailPage({ params }) {
               </div>
             </div>
           </div>
+
+          {/* Resume Preview */}
+          {hasResume && (
+            <div className="card" style={{ marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>📄</span> Resume
+              </h3>
+              <ResumeViewer jobId={job.id} />
+            </div>
+          )}
 
           {/* Outreach Hook Card */}
           {hasHook && (
@@ -225,7 +236,7 @@ export default async function JobDetailPage({ params }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {hasResume && (
                 <>
-                  <a href={`/api/resume/${job.id}?format=pdf`} className="btn btn-primary" style={{ justifyContent: 'center' }}>
+                  <a href={`/api/resume/${job.id}?format=pdf`} className="btn btn-secondary" style={{ justifyContent: 'center' }}>
                     📥 Download PDF
                   </a>
                   <a href={`/api/resume/${job.id}?format=tex`} className="btn btn-secondary" style={{ justifyContent: 'center' }}>

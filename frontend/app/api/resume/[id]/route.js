@@ -11,6 +11,8 @@ export async function GET(request, { params }) {
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const format = searchParams.get('format') || 'pdf';
+  const inline = searchParams.get('mode') === 'inline';
+  const disposition = inline ? 'inline' : 'attachment';
 
   const job = await getJobById(id);
   if (!job || !job.resume_file_path) {
@@ -31,7 +33,7 @@ export async function GET(request, { params }) {
       return new NextResponse(stream, {
         headers: {
           'Content-Type': mimeType,
-          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Content-Disposition': `${disposition}; filename="${filename}"`,
           ...(contentLength && { 'Content-Length': contentLength.toString() }),
         },
       });
@@ -82,7 +84,7 @@ export async function GET(request, { params }) {
   return new NextResponse(fileBuffer, {
     headers: {
       'Content-Type': mimeType,
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': `${disposition}; filename="${filename}"`,
       'Content-Length': fileBuffer.length.toString(),
     },
   });
