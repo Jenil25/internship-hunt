@@ -266,7 +266,7 @@ curl -H "X-N8N-API-KEY: $n8nAPIKEY" http://localhost:5678/api/v1/executions?limi
 # Submit a job
 curl -X POST http://localhost:5678/webhook/add-job \
   -F "profile_name=general" \
-  -F "user_email=jenilmahy25@gmail.com" \
+  -F "user_email=your-email@example.com" \
   -F "source=linkedin" \
   -F "jd_file=@path/to/job.pdf"
 ```

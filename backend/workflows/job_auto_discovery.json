@@ -91,7 +91,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT company, role FROM jobs WHERE user_email = 'jenilmahy25@gmail.com'",
+        "query": "SELECT company, role FROM jobs WHERE user_email = '{{ $env.USER_EMAIL }}'",
         "options": {}
       },
       "id": "fetch-existing",
@@ -309,7 +309,7 @@
             },
             {
               "name": "user_email",
-              "value": "jenilmahy25@gmail.com"
+              "value": "{{ $env.USER_EMAIL }}"
             },
             {
               "name": "source",

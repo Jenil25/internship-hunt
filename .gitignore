@@ -31,3 +31,6 @@ venv/
 # IDE
 .vscode/
 .idea/
+
+# Production workflow (contains personal config)
+backend/prod-live-workflow/

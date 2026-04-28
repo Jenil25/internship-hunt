@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 
 // Local fallback for legacy files
-const FILES_BASE = process.env.FILES_BASE_PATH || '/Users/jenilmahyavanshi/n8n-local/local_files';
+const FILES_BASE = process.env.FILES_BASE_PATH || './local_files';
 
 export async function GET(request, { params }) {
   const { id } = await params;
