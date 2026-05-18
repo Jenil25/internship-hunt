@@ -18,7 +18,7 @@ export async function query(text, params) {
   }
 }
 
-export async function getJobs(userEmail, { limit = 50, offset = 0, status, minScore } = {}) {
+export async function getJobs(userEmail, { limit = 500, offset = 0, status, minScore } = {}) {
   let sql = 'SELECT * FROM jobs WHERE user_email = $1';
   const params = [userEmail];
   let paramIndex = 2;
