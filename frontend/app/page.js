@@ -1,5 +1,6 @@
 import { getStats } from '@/lib/db';
 import { auth } from '@/lib/auth';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,15 +94,15 @@ export default async function Dashboard() {
         <div className="card">
           <h3 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: 600 }}>Quick Actions</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <a href="/upload" className="btn btn-primary" style={{ justifyContent: 'center' }}>
+            <Link href="/upload" className="btn btn-primary" style={{ justifyContent: 'center' }}>
               📤 Upload Job Description
-            </a>
-            <a href="/jobs" className="btn btn-secondary" style={{ justifyContent: 'center' }}>
+            </Link>
+            <Link href="/jobs" className="btn btn-secondary" style={{ justifyContent: 'center' }}>
               💼 View All Jobs
-            </a>
-            <a href="/resumes" className="btn btn-secondary" style={{ justifyContent: 'center' }}>
+            </Link>
+            <Link href="/resumes" className="btn btn-secondary" style={{ justifyContent: 'center' }}>
               📄 View Resumes
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -109,7 +110,7 @@ export default async function Dashboard() {
       <div className="table-container" style={{ marginTop: '32px' }}>
         <div className="table-header">
           <h3>Recent Jobs</h3>
-          <a href="/jobs" className="btn btn-ghost btn-sm">View All →</a>
+          <Link href="/jobs" className="btn btn-ghost btn-sm">View All →</Link>
         </div>
         {recentJobs.length > 0 ? (
           <table>
@@ -126,9 +127,9 @@ export default async function Dashboard() {
               {recentJobs.map((job) => (
                 <tr key={job.id}>
                   <td>
-                    <a href={`/jobs/${job.id}`} className="job-link" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                    <Link href={`/jobs/${job.id}`} className="job-link" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                       {job.company}
-                    </a>
+                    </Link>
                   </td>
                   <td>{job.role}</td>
                   <td>

@@ -106,7 +106,7 @@ export default async function JobDetailPage({ params }) {
               <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '20px' }}>📄</span> Resume
               </h3>
-              <ResumeViewer jobId={job.id} />
+              <ResumeViewer jobId={job.id} company={job.company} role={job.role} />
             </div>
           )}
 

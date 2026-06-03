@@ -1,8 +1,10 @@
+/* eslint-disable @next/next/no-page-custom-font */
 import "./globals.css";
 import AuthProvider from "./components/AuthProvider";
 import LogoutButton from "./components/LogoutButton";
 import MobileNav from "./components/MobileNav";
 import { auth } from "@/lib/auth";
+import Link from "next/link";
 
 export const metadata = {
   title: "Internship Hunt Dashboard",
@@ -51,26 +53,26 @@ function Sidebar({ user }) {
         <h1>Internship Hunt</h1>
       </div>
       <nav className="sidebar-nav">
-        <a href="/">
+        <Link href="/">
           <span className="nav-icon">📊</span>
           <span>Dashboard</span>
-        </a>
-        <a href="/jobs">
+        </Link>
+        <Link href="/jobs">
           <span className="nav-icon">💼</span>
           <span>Jobs</span>
-        </a>
-        <a href="/upload">
+        </Link>
+        <Link href="/upload">
           <span className="nav-icon">📤</span>
           <span>Upload JD</span>
-        </a>
-        <a href="/resumes">
+        </Link>
+        <Link href="/resumes">
           <span className="nav-icon">📄</span>
           <span>Resumes</span>
-        </a>
-        <a href="/profile">
+        </Link>
+        <Link href="/profile">
           <span className="nav-icon">👤</span>
           <span>Profile</span>
-        </a>
+        </Link>
       </nav>
       <div className="sidebar-user">
         {user && (

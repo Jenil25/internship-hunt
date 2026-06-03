@@ -9,24 +9,26 @@ import Link from 'next/link';
  * Converts to/from array only on blur.
  */
 function CommaSeparatedInput({ value = [], onChange, ...props }) {
+  const [prevValue, setPrevValue] = useState(value);
   const [text, setText] = useState(value.join(', '));
-  const focused = useRef(false);
+  const [isFocused, setIsFocused] = useState(false);
 
-  // Sync display text from parent array when not focused
-  useEffect(() => {
-    if (!focused.current) {
+  // Sync display text from parent array when not focused (render phase update)
+  if (value !== prevValue) {
+    setPrevValue(value);
+    if (!isFocused) {
       setText(value.join(', '));
     }
-  }, [value]);
+  }
 
   return (
     <input
       {...props}
       value={text}
       onChange={e => setText(e.target.value)}
-      onFocus={() => { focused.current = true; }}
+      onFocus={() => { setIsFocused(true); }}
       onBlur={() => {
-        focused.current = false;
+        setIsFocused(false);
         const arr = text.split(',').map(s => s.trim()).filter(Boolean);
         setText(arr.join(', '));
         onChange(arr);

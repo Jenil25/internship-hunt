@@ -1,4 +1,4 @@
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'us-east-1',
@@ -26,6 +26,22 @@ export async function getS3Object(key) {
     contentType: response.ContentType,
     contentLength: response.ContentLength,
   };
+}
+
+/**
+ * Upload an object to S3.
+ * @param {string} key - S3 object key
+ * @param {Buffer|string} body - File content
+ * @param {string} contentType - MIME type of the file
+ */
+export async function uploadToS3(key, body, contentType) {
+  const command = new PutObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+  });
+  return s3Client.send(command);
 }
 
 /**

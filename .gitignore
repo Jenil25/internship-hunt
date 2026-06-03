@@ -34,3 +34,8 @@ venv/
 
 # Production workflow (contains personal config)
 backend/prod-live-workflow/
+
+# Local custom tracking files (do not commit)
+vision.md
+n8n_updates.md
+

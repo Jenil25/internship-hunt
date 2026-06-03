@@ -30,20 +30,20 @@ export default function UploadPage() {
     setMessage('Submitting to pipeline... This may take 30-60 seconds.');
 
     try {
-      const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'http://localhost:5678/webhook-test/add-job';
-      
+      const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/add-job';
+
       if (mode === 'pdf' && file) {
         const formData = new FormData();
         formData.append('profile_name', 'general');
         formData.append('user_email', session?.user?.email || '');
         formData.append('source', source);
         formData.append('jd_file', file);
-        
+
         const res = await fetch(webhookUrl, {
           method: 'POST',
           body: formData,
         });
-        
+
         if (res.ok) {
           setStatus('success');
           setMessage('Job submitted successfully! Processing in background. Check the Jobs page for results.');
@@ -67,7 +67,7 @@ export default function UploadPage() {
             jd_text: jdText,
           }),
         });
-        
+
         if (res.ok) {
           setStatus('success');
           setMessage('Job submitted successfully! Processing in background. Check the Jobs page for results.');
@@ -193,7 +193,7 @@ export default function UploadPage() {
         <div>
           <div className="card">
             <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>Settings</h3>
-            
+
             <div className="form-group">
               <label>Source</label>
               <select className="form-select" value={source} onChange={(e) => setSource(e.target.value)}>
