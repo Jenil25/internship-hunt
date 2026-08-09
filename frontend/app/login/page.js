@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
+// Public demo account. Seeded by scripts/seed-demo.js — keep these in sync.
+const DEMO_EMAIL = 'demo@applai.dev';
+const DEMO_PASSWORD = 'demo1234';
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -11,8 +15,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const login = async (email, password) => {
     setError('');
     setLoading(true);
 
@@ -25,11 +28,16 @@ export default function LoginPage() {
     setLoading(false);
 
     if (result?.error) {
-      setError('Invalid email or password');
+      setError(email === DEMO_EMAIL ? 'Demo account is unavailable right now.' : 'Invalid email or password');
     } else {
       router.push('/');
       router.refresh();
     }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    login(email, password);
   };
 
   return (
@@ -72,6 +80,18 @@ export default function LoginPage() {
           <button type="submit" className="btn btn-primary auth-submit" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
+
+          <button
+            type="button"
+            className="btn auth-submit auth-demo"
+            onClick={() => login(DEMO_EMAIL, DEMO_PASSWORD)}
+            disabled={loading}
+          >
+            👀 Explore the demo — no signup
+          </button>
+          <p className="auth-demo-note">
+            Signs you into a sample account with pre-scored jobs and resumes.
+          </p>
         </form>
 
         <div className="auth-footer">

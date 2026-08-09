@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:demo": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/seed-demo.js",
+    "seed:demo:prod": "node --env-file=.env.production scripts/seed-demo.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.999.0",

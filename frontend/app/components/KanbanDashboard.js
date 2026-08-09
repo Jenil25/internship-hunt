@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+const PAGE_SIZE = 25;
+
 const COLUMNS = [
   {
     id: 'ready',
@@ -76,6 +78,7 @@ export default function KanbanDashboard({ initialJobs }) {
   const [movingJobId, setMovingJobId] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [scoreFilter, setScoreFilter] = useState(false); // true means 80+ only
+  const [page, setPage] = useState(0); // table view only; the board scrolls per column instead
 
   // Load view preference on mount
   useEffect(() => {
@@ -192,6 +195,12 @@ export default function KanbanDashboard({ initialJobs }) {
 
     return true;
   });
+
+  // Table pagination. Clamping (rather than resetting on filter change) keeps this
+  // effect-free: if a filter shrinks the list past the current page, fall back to the last one.
+  const pageCount = Math.max(1, Math.ceil(filteredJobs.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pagedJobs = filteredJobs.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   return (
     <div>
@@ -318,12 +327,17 @@ export default function KanbanDashboard({ initialJobs }) {
                   }}>{columnJobs.length}</span>
                 </div>
 
-                {/* Column Content */}
+                {/* Column Content — scrolls within the column so a 200-job pile
+                    doesn't stretch the page. Drop target is the column, not this
+                    wrapper, so drag-and-drop still works while scrolled. */}
                 <div className="kanban-cards-wrapper" style={{
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '10px',
                   flex: 1,
+                  maxHeight: 'calc(100vh - 280px)',
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
                 }}>
                   {columnJobs.length > 0 ? (
                     columnJobs.map(job => (
@@ -495,7 +509,7 @@ export default function KanbanDashboard({ initialJobs }) {
                 </tr>
               </thead>
               <tbody>
-                {filteredJobs.map((job) => (
+                {pagedJobs.map((job) => (
                   <tr key={job.id}>
                     <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                       {job.company}
@@ -537,6 +551,28 @@ export default function KanbanDashboard({ initialJobs }) {
               <div className="empty-icon">📭</div>
               <h3>No jobs found</h3>
               <p>Upload a job description or adjust your filters</p>
+            </div>
+          )}
+
+          {pageCount > 1 && (
+            <div className="table-pagination">
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setPage(safePage - 1)}
+                disabled={safePage === 0}
+              >
+                ← Prev
+              </button>
+              <span>
+                {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filteredJobs.length)} of {filteredJobs.length}
+              </span>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setPage(safePage + 1)}
+                disabled={safePage >= pageCount - 1}
+              >
+                Next →
+              </button>
             </div>
           )}
         </div>

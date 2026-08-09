@@ -1201,6 +1201,36 @@ a.job-link:hover {
   margin-top: 8px;
 }
 
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.auth-demo {
+  background: transparent;
+  border: 1px dashed var(--border-hover);
+  color: var(--text-secondary);
+  margin-top: 12px;
+}
+
+.auth-demo:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.auth-demo-note {
+  text-align: center;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .auth-footer {
   text-align: center;
   margin-top: 24px;
