@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-const PAGE_SIZE = 25;
+// PAGE_SIZE / BOARD_WINDOW live in app/jobs/page.js — a 'use client' module cannot
+// export plain values to a server component, only components. pageSize arrives as a prop.
 
 const COLUMNS = [
   {
@@ -71,26 +73,38 @@ function getStatusBadge(status) {
   return <span className={`badge ${s.class}`} style={{ fontSize: '10px', padding: '2px 8px' }}>{s.label}</span>;
 }
 
-export default function KanbanDashboard({ initialJobs }) {
+export default function KanbanDashboard({ initialJobs, total, view, page, pageSize, statusFilter, scoreFilter }) {
   const [jobs, setJobs] = useState(initialJobs);
-  const [view, setView] = useState('board'); // 'board' or 'table'
   const [draggedOverCol, setDraggedOverCol] = useState(null);
   const [movingJobId, setMovingJobId] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [scoreFilter, setScoreFilter] = useState(false); // true means 80+ only
-  const [page, setPage] = useState(0); // table view only; the board scrolls per column instead
+  const router = useRouter();
 
-  // Load view preference on mount
+  // View, filters and page live in the URL so the server can scope the SQL query.
+  // Resync local job state whenever the server sends a different slice.
   useEffect(() => {
-    const savedView = localStorage.getItem('jobs-view-pref');
-    if (savedView === 'table' || savedView === 'board') {
-      setView(savedView);
-    }
-  }, []);
+    setJobs(initialJobs);
+  }, [initialJobs]);
 
-  // Update localStorage when view changes
+  // Build a URL preserving the other params. Any filter change resets to page 1,
+  // otherwise narrowing a filter could strand you past the end of the new result set.
+  const hrefWith = (changes) => {
+    const params = new URLSearchParams();
+    const next = { view, status: statusFilter, score: scoreFilter ? '80' : null, page, ...changes };
+    if (next.view === 'table') params.set('view', 'table');
+    if (next.status && next.status !== 'all') params.set('status', next.status);
+    if (next.score) params.set('score', '80');
+    if (next.page > 1) params.set('page', String(next.page));
+    const qs = params.toString();
+    return qs ? `/jobs?${qs}` : '/jobs';
+  };
+
+  // Remember the last view, and honour it on a bare /jobs visit.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('view')) return;
+    if (localStorage.getItem('jobs-view-pref') === 'table') router.replace('/jobs?view=table');
+  }, [router]);
+
   const handleViewChange = (newView) => {
-    setView(newView);
     localStorage.setItem('jobs-view-pref', newView);
   };
 
@@ -149,6 +163,8 @@ export default function KanbanDashboard({ initialJobs }) {
       if (!res.ok) {
         throw new Error('Failed to update status');
       }
+      // Counts and filtered result sets are computed server-side; resync them.
+      router.refresh();
     } catch (err) {
       console.error('Drag update error:', err);
       // Revert if API failed
@@ -176,31 +192,19 @@ export default function KanbanDashboard({ initialJobs }) {
       if (!res.ok) {
         throw new Error('Failed to update status');
       }
+      // Counts and filtered result sets are computed server-side; resync them.
+      router.refresh();
     } catch (err) {
       console.error('Manual update error:', err);
       setJobs(previousJobs);
     }
   };
 
-  // Filter logic
-  const filteredJobs = jobs.filter(job => {
-    // Score Filter (80+)
-    if (scoreFilter && (!job.score || job.score < 80)) return false;
-
-    // Status Filter (mainly for Table View)
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'ready' && !['scored', 'resume_generated'].includes(job.status)) return false;
-      if (statusFilter !== 'ready' && job.status !== statusFilter) return false;
-    }
-
-    return true;
-  });
-
-  // Table pagination. Clamping (rather than resetting on filter change) keeps this
-  // effect-free: if a filter shrinks the list past the current page, fall back to the last one.
-  const pageCount = Math.max(1, Math.ceil(filteredJobs.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
-  const pagedJobs = filteredJobs.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  // Filtering and paging happen in SQL now; `jobs` is already the correct slice.
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const firstRow = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const lastRow = Math.min(page * pageSize, total);
+  const boardTruncated = view === 'board' && total > jobs.length;
 
   return (
     <div>
@@ -215,36 +219,25 @@ export default function KanbanDashboard({ initialJobs }) {
       }}>
         {/* Quick Filter Buttons */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <button
-            onClick={() => { setStatusFilter('all'); setScoreFilter(false); }}
-            className={`btn btn-sm ${statusFilter === 'all' && !scoreFilter ? 'btn-primary' : 'btn-secondary'}`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => { setStatusFilter('ready'); setScoreFilter(false); }}
-            className={`btn btn-sm ${statusFilter === 'ready' ? 'btn-primary' : 'btn-secondary'}`}
-          >
-            📄 Ready
-          </button>
-          <button
-            onClick={() => { setStatusFilter('applied'); setScoreFilter(false); }}
-            className={`btn btn-sm ${statusFilter === 'applied' ? 'btn-primary' : 'btn-secondary'}`}
-          >
-            📤 Applied
-          </button>
-          <button
-            onClick={() => { setStatusFilter('interviewing'); setScoreFilter(false); }}
-            className={`btn btn-sm ${statusFilter === 'interviewing' ? 'btn-primary' : 'btn-secondary'}`}
-          >
-            🎙️ Interviewing
-          </button>
-          <button
-            onClick={() => { setStatusFilter('all'); setScoreFilter(true); }}
-            className={`btn btn-sm ${scoreFilter ? 'btn-primary' : 'btn-secondary'}`}
-          >
-            🔥 Score 80+
-          </button>
+          {[
+            { key: 'all', score: false, label: 'All' },
+            { key: 'ready', score: false, label: '📄 Ready' },
+            { key: 'applied', score: false, label: '📤 Applied' },
+            { key: 'interviewing', score: false, label: '🎙️ Interviewing' },
+            { key: 'all', score: true, label: '🔥 Score 80+' },
+          ].map(f => {
+            const active = f.score ? scoreFilter : statusFilter === f.key && !scoreFilter;
+            return (
+              <Link
+                key={f.label}
+                href={hrefWith({ status: f.key, score: f.score ? '80' : null, page: 1 })}
+                scroll={false}
+                className={`btn btn-sm ${active ? 'btn-primary' : 'btn-secondary'}`}
+              >
+                {f.label}
+              </Link>
+            );
+          })}
         </div>
 
         {/* Board / Table Switcher */}
@@ -256,22 +249,30 @@ export default function KanbanDashboard({ initialJobs }) {
           padding: '4px',
           gap: '4px',
         }}>
-          <button
-            onClick={() => handleViewChange('board')}
-            className={`btn btn-sm ${view === 'board' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ borderRadius: 'var(--radius-sm)', padding: '6px 12px' }}
-          >
-            📊 Board
-          </button>
-          <button
-            onClick={() => handleViewChange('table')}
-            className={`btn btn-sm ${view === 'table' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ borderRadius: 'var(--radius-sm)', padding: '6px 12px' }}
-          >
-            ☰ Table
-          </button>
+          {[['board', '📊 Board'], ['table', '☰ Table']].map(([v, label]) => (
+            <Link
+              key={v}
+              href={hrefWith({ view: v, page: 1 })}
+              scroll={false}
+              onClick={() => handleViewChange(v)}
+              className={`btn btn-sm ${view === v ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ borderRadius: 'var(--radius-sm)', padding: '6px 12px' }}
+            >
+              {label}
+            </Link>
+          ))}
         </div>
       </div>
+
+      {boardTruncated && (
+        <div className="board-truncated-notice">
+          Showing the {jobs.length} most recent of {total} jobs.{' '}
+          <Link href={hrefWith({ view: 'table', page: 1 })} scroll={false} onClick={() => handleViewChange('table')}>
+            Switch to Table view
+          </Link>{' '}
+          to page through all of them.
+        </div>
+      )}
 
       {/* --- RENDER 1: KANBAN BOARD VIEW --- */}
       {view === 'board' && (
@@ -285,7 +286,7 @@ export default function KanbanDashboard({ initialJobs }) {
         }}>
           {COLUMNS.map(column => {
             // Get jobs falling in this column
-            const columnJobs = filteredJobs.filter(job => column.statuses.includes(job.status));
+            const columnJobs = jobs.filter(job => column.statuses.includes(job.status));
             const isDraggedOver = draggedOverCol === column.id;
 
             return (
@@ -491,10 +492,10 @@ export default function KanbanDashboard({ initialJobs }) {
       {view === 'table' && (
         <div className="table-container">
           <div className="table-header">
-            <h3>{filteredJobs.length} Job{filteredJobs.length !== 1 ? 's' : ''}</h3>
+            <h3>{total} Job{total !== 1 ? 's' : ''}</h3>
             <Link href="/upload" className="btn btn-primary btn-sm">+ Upload JD</Link>
           </div>
-          {filteredJobs.length > 0 ? (
+          {jobs.length > 0 ? (
             <table>
               <thead>
                 <tr>
@@ -509,7 +510,7 @@ export default function KanbanDashboard({ initialJobs }) {
                 </tr>
               </thead>
               <tbody>
-                {pagedJobs.map((job) => (
+                {jobs.map((job) => (
                   <tr key={job.id}>
                     <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                       {job.company}
@@ -556,23 +557,21 @@ export default function KanbanDashboard({ initialJobs }) {
 
           {pageCount > 1 && (
             <div className="table-pagination">
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setPage(safePage - 1)}
-                disabled={safePage === 0}
-              >
-                ← Prev
-              </button>
-              <span>
-                {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filteredJobs.length)} of {filteredJobs.length}
-              </span>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setPage(safePage + 1)}
-                disabled={safePage >= pageCount - 1}
-              >
-                Next →
-              </button>
+              {page > 1 ? (
+                <Link href={hrefWith({ page: page - 1 })} scroll={false} className="btn btn-secondary btn-sm">
+                  ← Prev
+                </Link>
+              ) : (
+                <span className="btn btn-secondary btn-sm is-disabled">← Prev</span>
+              )}
+              <span>{firstRow}–{lastRow} of {total}</span>
+              {page < pageCount ? (
+                <Link href={hrefWith({ page: page + 1 })} scroll={false} className="btn btn-secondary btn-sm">
+                  Next →
+                </Link>
+              ) : (
+                <span className="btn btn-secondary btn-sm is-disabled">Next →</span>
+              )}
             </div>
           )}
         </div>

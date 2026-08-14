@@ -18,14 +18,22 @@ export async function query(text, params) {
   }
 }
 
-export async function getJobs(userEmail, { limit = 500, offset = 0, status, minScore } = {}) {
-  let sql = 'SELECT * FROM jobs WHERE user_email = $1';
+/**
+ * Fetch a page of jobs plus the total number of rows matching the filters.
+ *
+ * `total` is the count BEFORE limit/offset (window functions run before LIMIT),
+ * so it costs no extra round trip and tells callers how much they did not receive.
+ * `statuses` takes an array so grouped columns (e.g. Ready = scored +
+ * resume_generated) filter in SQL rather than after truncation.
+ */
+export async function getJobs(userEmail, { limit = 100, offset = 0, statuses, minScore } = {}) {
+  let sql = 'SELECT *, COUNT(*) OVER() AS total_count FROM jobs WHERE user_email = $1';
   const params = [userEmail];
   let paramIndex = 2;
 
-  if (status) {
-    sql += ` AND status = $${paramIndex++}`;
-    params.push(status);
+  if (statuses?.length) {
+    sql += ` AND status = ANY($${paramIndex++})`;
+    params.push(statuses);
   }
   if (minScore) {
     sql += ` AND score >= $${paramIndex++}`;
@@ -35,7 +43,10 @@ export async function getJobs(userEmail, { limit = 500, offset = 0, status, minS
   sql += ` ORDER BY created_at DESC LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
   params.push(limit, offset);
 
-  return query(sql, params);
+  const rows = await query(sql, params);
+  // No rows means no matches; the window function had nothing to report a count on.
+  const total = rows.length ? Number(rows[0].total_count) : 0;
+  return { jobs: rows.map(({ total_count, ...job }) => job), total };
 }
 
 export async function getJobById(id) {

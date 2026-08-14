@@ -74,9 +74,11 @@ Seed or reset it:
 
 ```bash
 cd frontend
-npm run seed:demo         # reads .env / .env.local  (local Postgres)
-npm run seed:demo:prod    # reads .env.production    (Supabase)
+npm run seed:demo
 ```
+
+It seeds whichever database `.env` / `.env.local` points at — **check first**, since
+`.env` may be pointing at production Supabase rather than your local container.
 
 The script is idempotent — re-running wipes and reinserts the demo user's jobs and
 profile, which is how you reset whatever visitors changed. It touches no other user's

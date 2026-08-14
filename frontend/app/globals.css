@@ -1201,6 +1201,21 @@ a.job-link:hover {
   margin-top: 8px;
 }
 
+.board-truncated-notice {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.board-truncated-notice a {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
 .table-pagination {
   display: flex;
   align-items: center;
@@ -1210,6 +1225,11 @@ a.job-link:hover {
   border-top: 1px solid var(--border);
   font-size: 13px;
   color: var(--text-muted);
+}
+
+.table-pagination .is-disabled {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .auth-demo {
