@@ -1340,6 +1340,15 @@ a.job-link:hover {
    Kanban Board Styling
    ========================================================================== */
 .kanban-board {
+  display: grid;
+  /* Columns must live here rather than as an inline style, or no media query
+     below can reach them. auto-fit + minmax keeps a column readable: it drops
+     to fewer columns instead of squeezing six into 390px. */
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  align-items: start;
+  padding-bottom: 16px;
+  min-height: 70vh;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -1405,10 +1414,32 @@ a.job-link:hover {
   border-top: 3px solid var(--error) !important;
 }
 
+/* Not a drop target — the pipeline decides eligibility, not the user. Muted
+   so it reads as a record rather than a stage of the funnel. */
+.col-ineligible {
+  border-top: 3px solid var(--text-disabled) !important;
+  opacity: 0.75;
+}
+
 /* Mobile responsive selector on Kanban cards */
 @media (max-width: 1024px) {
   .mobile-only-controls {
     display: block !important;
+  }
+
+  /* One column on a phone. Dragging between columns is not usable at this
+     size anyway — the per-card status select is the control here. */
+  .kanban-board {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .kanban-column {
+    min-height: 0 !important;
+  }
+
+  .kanban-cards-wrapper {
+    max-height: none !important;
   }
 }
 
@@ -1589,4 +1620,187 @@ a.job-link:hover {
   height: 100%;
   border: none;
   background: #525659;
+}
+/* ==========================================================================
+   Triage Queue — one job, two decisions
+   ========================================================================== */
+
+.triage {
+  max-width: 720px;
+}
+
+.triage-progress {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.triage-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.triage-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.triage-head h3 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.triage-role {
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.triage-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.triage-score {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.triage-score-value {
+  font-family: var(--font-mono);
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.triage-score-value.score-high { color: var(--success); }
+.triage-score-value.score-mid  { color: var(--warning); }
+.triage-score-value.score-low  { color: var(--error); }
+
+.triage-score-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.triage-hook {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  padding: 14px 16px;
+  background: rgba(0, 0, 0, 0.15);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+}
+
+.triage-reasons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.triage-reason-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.triage-reason-title.tone-success { color: var(--success); }
+.triage-reason-title.tone-warning { color: var(--warning); }
+
+.triage-reasons ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.triage-reasons li {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  padding-left: 14px;
+  position: relative;
+}
+
+.triage-reasons li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--text-muted);
+}
+
+.triage-jd summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.triage-jd pre {
+  white-space: pre-wrap;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: 12px;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-sm);
+}
+
+/* Apply is the primary action and sits on the right, where the thumb lands. */
+.triage-actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 12px;
+}
+
+.triage-actions .btn {
+  justify-content: center;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.triage-links {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.triage-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.triage-links a:hover {
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .triage-reasons {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .triage-head {
+    flex-direction: column;
+  }
+
+  .triage-score {
+    text-align: left;
+  }
 }

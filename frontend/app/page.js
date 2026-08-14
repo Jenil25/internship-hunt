@@ -10,13 +10,20 @@ function getScoreClass(score) {
   return 'low';
 }
 
-function getStatusBadge(status) {
+function getStatusBadge(job) {
+  if (job.pipeline_state === 'ineligible') {
+    return <span className="badge badge-error">Ineligible</span>;
+  }
   const map = {
-    resume_generated: { class: 'badge-success', label: 'Resume Generated' },
-    scored: { class: 'badge-info', label: 'Scored' },
-    ineligible: { class: 'badge-error', label: 'Ineligible' },
+    none: { class: 'badge-info', label: 'To Review' },
+    applied: { class: 'badge-info', label: 'Applied' },
+    interviewing: { class: 'badge-warning', label: 'Interviewing' },
+    accepted: { class: 'badge-success', label: 'Offer' },
+    rejected: { class: 'badge-error', label: 'Rejected' },
+    no_response: { class: 'badge-neutral', label: 'No Reply' },
+    passed: { class: 'badge-neutral', label: 'Passed' },
   };
-  const s = map[status] || { class: 'badge-neutral', label: status };
+  const s = map[job.application_state] || { class: 'badge-neutral', label: job.application_state };
   return <span className={`badge ${s.class}`}>{s.label}</span>;
 }
 
@@ -137,7 +144,7 @@ export default async function Dashboard() {
                       {job.score}
                     </span>
                   </td>
-                  <td>{getStatusBadge(job.status)}</td>
+                  <td>{getStatusBadge(job)}</td>
                   <td style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
                     {new Date(job.created_at).toLocaleDateString()}
                   </td>

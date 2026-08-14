@@ -10,10 +10,13 @@ export default async function ResumesPage() {
   let error = null;
   
   try {
+    // A resume exists if the file exists. The old filter also required
+    // status = 'resume_generated', so applying to a job hid its resume.
     jobs = await query(`
-      SELECT id, company, role, score, match_level, resume_file_path, created_at 
-      FROM jobs 
-      WHERE user_email = $1 AND status = 'resume_generated' AND resume_file_path IS NOT NULL
+      SELECT id, company, role, score, match_level, resume_file_path,
+             application_state, created_at
+      FROM jobs
+      WHERE user_email = $1 AND resume_file_path IS NOT NULL
       ORDER BY created_at DESC
     `, [session.user.email]);
   } catch (e) {

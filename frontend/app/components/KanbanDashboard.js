@@ -7,38 +7,62 @@ import Link from 'next/link';
 // PAGE_SIZE / BOARD_WINDOW live in app/jobs/page.js — a 'use client' module cannot
 // export plain values to a server component, only components. pageSize arrives as a prop.
 
+// Columns are keyed on application_state — where the user is in applying —
+// except Ineligible, which is a pipeline outcome. `dropTarget: null` marks a
+// column you cannot drag into: eligibility is the pipeline's call, not a status
+// the user gets to assign.
 const COLUMNS = [
   {
     id: 'ready',
-    title: '📥 Scored / Ready',
-    statuses: ['scored', 'resume_generated'],
+    title: '📥 To Review',
+    states: ['none'],
+    dropTarget: 'none',
     class: 'col-ready',
   },
   {
     id: 'applied',
     title: '📤 Applied',
-    statuses: ['applied'],
+    states: ['applied'],
+    dropTarget: 'applied',
     class: 'col-applied',
   },
   {
     id: 'interviewing',
     title: '🎙️ Interviewing',
-    statuses: ['interviewing'],
+    states: ['interviewing'],
+    dropTarget: 'interviewing',
     class: 'col-interviewing',
   },
   {
     id: 'accepted',
     title: '🎉 Accepted / Offers',
-    statuses: ['accepted'],
+    states: ['accepted'],
+    dropTarget: 'accepted',
     class: 'col-accepted',
   },
   {
     id: 'rejected',
     title: '❌ Rejected / Passed',
-    statuses: ['rejected', 'pass', 'no_response'],
+    states: ['rejected', 'passed', 'no_response'],
+    dropTarget: 'rejected',
     class: 'col-rejected',
   },
+  {
+    // Previously these matched no column at all and silently vanished from the
+    // board — 11 jobs in the database, 10 on screen.
+    id: 'ineligible',
+    title: '🚫 Ineligible',
+    states: [],
+    dropTarget: null,
+    class: 'col-ineligible',
+  },
 ];
+
+/** Which column a job belongs in. Ineligible wins regardless of funnel state. */
+function columnFor(job) {
+  if (job.pipeline_state === 'ineligible') return 'ineligible';
+  return COLUMNS.find(c => c.states.includes(job.application_state))?.id ?? 'ready';
+}
 
 function getScoreClass(score) {
   if (score >= 80) return 'high';
@@ -47,29 +71,39 @@ function getScoreClass(score) {
 }
 
 function getMatchBadge(level) {
+  // PARTIAL_MATCH and WEAK_MATCH were missing, so those cards rendered the raw
+  // "PARTIAL_MATCH" string next to friendly "Strong"/"Good" labels.
   const map = {
     STRONG_MATCH: { class: 'badge-success', label: 'Strong' },
     GOOD_MATCH: { class: 'badge-info', label: 'Good' },
-    MODERATE_MATCH: { class: 'badge-warning', label: 'Mod' },
+    MODERATE_MATCH: { class: 'badge-warning', label: 'Moderate' },
+    PARTIAL_MATCH: { class: 'badge-warning', label: 'Partial' },
+    WEAK_MATCH: { class: 'badge-error', label: 'Weak' },
     LOW_MATCH: { class: 'badge-error', label: 'Low' },
+    INELIGIBLE: { class: 'badge-error', label: 'Ineligible' },
   };
-  const m = map[level] || { class: 'badge-neutral', label: level || '—' };
+  const m = map[level] || {
+    class: 'badge-neutral',
+    // Never show a raw enum: turn anything unmapped into Title Case.
+    label: level ? level.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '—',
+  };
   return <span className={`badge ${m.class}`} style={{ fontSize: '10px', padding: '2px 8px' }}>{m.label}</span>;
 }
 
-function getStatusBadge(status) {
+function getStatusBadge(job) {
+  if (job.pipeline_state === 'ineligible') {
+    return <span className="badge badge-error" style={{ fontSize: '10px', padding: '2px 8px' }}>🚫 Ineligible</span>;
+  }
   const map = {
-    resume_generated: { class: 'badge-success', label: '📄 Ready' },
-    scored: { class: 'badge-info', label: '📊 Scored' },
+    none: { class: 'badge-info', label: '📥 To Review' },
     applied: { class: 'badge-info', label: '📤 Applied' },
     interviewing: { class: 'badge-warning', label: '🎙️ Interview' },
-    no_response: { class: 'badge-neutral', label: '😶 Ignore' },
+    no_response: { class: 'badge-neutral', label: '😶 No Reply' },
     accepted: { class: 'badge-success', label: '🎉 Offer' },
     rejected: { class: 'badge-error', label: '❌ Reject' },
-    pass: { class: 'badge-neutral', label: '⏭️ Pass' },
-    ineligible: { class: 'badge-error', label: '🚫 Ineligible' },
+    passed: { class: 'badge-neutral', label: '⏭️ Passed' },
   };
-  const s = map[status] || { class: 'badge-neutral', label: status };
+  const s = map[job.application_state] || { class: 'badge-neutral', label: job.application_state };
   return <span className={`badge ${s.class}`} style={{ fontSize: '10px', padding: '2px 8px' }}>{s.label}</span>;
 }
 
@@ -139,16 +173,16 @@ export default function KanbanDashboard({ initialJobs, total, view, page, pageSi
     const jobId = e.dataTransfer.getData('text/plain');
     if (!jobId) return;
 
-    // Find the target status (take the first status of the column as primary target)
     const targetCol = COLUMNS.find(c => c.id === targetColId);
-    if (!targetCol) return;
-    const targetStatus = targetCol.statuses[0];
+    // dropTarget null means the column is not a valid destination (Ineligible).
+    if (!targetCol?.dropTarget) return;
+    const targetState = targetCol.dropTarget;
 
-    // Optimistically update the UI status
+    // Optimistically update the UI
     const previousJobs = [...jobs];
     setJobs(prevJobs => prevJobs.map(job => {
       if (job.id.toString() === jobId) {
-        return { ...job, status: targetStatus };
+        return { ...job, application_state: targetState };
       }
       return job;
     }));
@@ -157,7 +191,7 @@ export default function KanbanDashboard({ initialJobs, total, view, page, pageSi
       const res = await fetch(`/api/jobs/${jobId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: targetStatus }),
+        body: JSON.stringify({ application_state: targetState }),
       });
 
       if (!res.ok) {
@@ -173,11 +207,11 @@ export default function KanbanDashboard({ initialJobs, total, view, page, pageSi
   };
 
   // Manual select handler for non-drag updates
-  const handleStatusChange = async (jobId, newStatus) => {
+  const handleStatusChange = async (jobId, newState) => {
     const previousJobs = [...jobs];
     setJobs(prevJobs => prevJobs.map(job => {
       if (job.id === jobId) {
-        return { ...job, status: newStatus };
+        return { ...job, application_state: newState };
       }
       return job;
     }));
@@ -186,7 +220,7 @@ export default function KanbanDashboard({ initialJobs, total, view, page, pageSi
       const res = await fetch(`/api/jobs/${jobId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ application_state: newState }),
       });
 
       if (!res.ok) {
@@ -274,20 +308,16 @@ export default function KanbanDashboard({ initialJobs, total, view, page, pageSi
         </div>
       )}
 
-      {/* --- RENDER 1: KANBAN BOARD VIEW --- */}
+      {/* --- RENDER 1: KANBAN BOARD VIEW ---
+          Column count lives in globals.css, not here: an inline
+          gridTemplateColumns cannot be overridden by a media query, which is
+          why the board stayed 5 columns wide at 390px and truncated every
+          card to "F…". */}
       {view === 'board' && (
-        <div className="kanban-board" style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-          gap: '10px',
-          alignItems: 'start',
-          paddingBottom: '16px',
-          minHeight: '70vh',
-        }}>
+        <div className="kanban-board">
           {COLUMNS.map(column => {
-            // Get jobs falling in this column
-            const columnJobs = jobs.filter(job => column.statuses.includes(job.status));
-            const isDraggedOver = draggedOverCol === column.id;
+            const columnJobs = jobs.filter(job => columnFor(job) === column.id);
+            const isDraggedOver = draggedOverCol === column.id && column.dropTarget;
 
             return (
               <div
@@ -438,10 +468,12 @@ export default function KanbanDashboard({ initialJobs, total, view, page, pageSi
                           </Link>
                         </div>
 
-                        {/* Mobile Status Mover (Hidden on Desktop) */}
+                        {/* Mobile Status Mover (Hidden on Desktop). Not shown for
+                            ineligible jobs — there is no funnel state to move them to. */}
+                        {job.pipeline_state !== 'ineligible' && (
                         <div className="mobile-only-controls" style={{ marginTop: '10px', borderTop: '1px solid var(--border)', paddingTop: '8px', display: 'none' }}>
                           <select
-                            value={job.status}
+                            value={job.application_state}
                             onChange={(e) => handleStatusChange(job.id, e.target.value)}
                             style={{
                               width: '100%',
@@ -453,16 +485,16 @@ export default function KanbanDashboard({ initialJobs, total, view, page, pageSi
                               color: 'var(--text-secondary)',
                             }}
                           >
-                            <option value="scored">Scored</option>
-                            <option value="resume_generated">Ready</option>
+                            <option value="none">To Review</option>
                             <option value="applied">Applied</option>
                             <option value="interviewing">Interviewing</option>
                             <option value="accepted">Accepted</option>
                             <option value="rejected">Rejected</option>
-                            <option value="pass">Passed</option>
+                            <option value="passed">Passed</option>
                             <option value="no_response">No Response</option>
                           </select>
                         </div>
+                        )}
                       </div>
                     ))
                   ) : (
@@ -534,7 +566,7 @@ export default function KanbanDashboard({ initialJobs, total, view, page, pageSi
                         {job.source || '—'}
                       </span>
                     </td>
-                    <td>{getStatusBadge(job.status)}</td>
+                    <td>{getStatusBadge(job)}</td>
                     <td style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
                       {new Date(job.created_at).toLocaleDateString()}
                     </td>

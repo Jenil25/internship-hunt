@@ -160,17 +160,17 @@ test("B cannot overwrite A's resume source", async () => {
   assert.equal(res.status, 404, `expected 404, got ${res.status}`);
 });
 
-test("B cannot change the status of A's job", async () => {
+test("B cannot change the application state of A's job", async () => {
   const res = await fetch(`${BASE}/api/jobs/${jobA}/status`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', cookie: cookieB },
-    body: JSON.stringify({ status: 'rejected' }),
+    body: JSON.stringify({ application_state: 'rejected' }),
   });
   assert.equal(res.status, 404, `expected 404, got ${res.status}`);
 
   // The write must not have landed even if the response were misleading.
-  const [row] = await q('SELECT status FROM jobs WHERE id = $1', [jobA]);
-  assert.equal(row.status, 'resume_generated', "A's status was modified by B");
+  const [row] = await q('SELECT application_state FROM jobs WHERE id = $1', [jobA]);
+  assert.equal(row.application_state, 'none', "A's application state was modified by B");
 });
 
 test('an unauthenticated caller cannot change a job status', async () => {
@@ -179,29 +179,36 @@ test('an unauthenticated caller cannot change a job status', async () => {
   const res = await fetch(`${BASE}/api/jobs/${jobA}/status`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: 'rejected' }),
+    body: JSON.stringify({ application_state: 'rejected' }),
     redirect: 'manual',
   });
   assert.notEqual(res.status, 200, `unauthenticated write returned ${res.status}`);
 
   // The part that actually matters: no write landed.
-  const [row] = await q('SELECT status FROM jobs WHERE id = $1', [jobA]);
-  assert.equal(row.status, 'resume_generated', 'status changed without a session');
+  const [row] = await q('SELECT application_state FROM jobs WHERE id = $1', [jobA]);
+  assert.equal(row.application_state, 'none', 'application state changed without a session');
 });
 
 test('status route rejects a field it does not own (mass assignment)', async () => {
   const res = await fetch(`${BASE}/api/jobs/${jobB}/status`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', cookie: cookieB },
-    body: JSON.stringify({ status: 'applied', user_email: A.email, score: 1 }),
+    body: JSON.stringify({
+      application_state: 'applied',
+      user_email: A.email,
+      score: 1,
+      pipeline_state: 'ineligible',
+    }),
   });
   assert.equal(res.status, 200);
 
-  // Owner and score must be untouched; only status may move.
-  const [row] = await q('SELECT user_email, score, status FROM jobs WHERE id = $1', [jobB]);
+  // Only application_state may move; everything else on the body is ignored.
+  const [row] = await q(
+    'SELECT user_email, score, pipeline_state, application_state FROM jobs WHERE id = $1', [jobB]);
   assert.equal(row.user_email, B.email, 'job owner was reassigned via the request body');
   assert.equal(row.score, 88, 'score was writable via the request body');
-  assert.equal(row.status, 'applied');
+  assert.equal(row.pipeline_state, 'scored', 'pipeline_state was writable via the request body');
+  assert.equal(row.application_state, 'applied');
 });
 
 // ─── The owner is unaffected ───
@@ -216,13 +223,15 @@ test('A can download their own resume', async () => {
   assert.equal(res.status, 200, `owner got ${res.status}`);
 });
 
-test('A can change the status of their own job', async () => {
+test('A can change the application state of their own job', async () => {
   const res = await fetch(`${BASE}/api/jobs/${jobA}/status`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', cookie: cookieA },
-    body: JSON.stringify({ status: 'interviewing' }),
+    body: JSON.stringify({ application_state: 'interviewing' }),
   });
   assert.equal(res.status, 200, `owner got ${res.status}`);
-  const [row] = await q('SELECT status FROM jobs WHERE id = $1', [jobA]);
-  assert.equal(row.status, 'interviewing');
+  const [row] = await q('SELECT application_state, reviewed_at FROM jobs WHERE id = $1', [jobA]);
+  assert.equal(row.application_state, 'interviewing');
+  // Deciding on a job stamps reviewed_at, which is what drops it from the queue.
+  assert.ok(row.reviewed_at, 'reviewed_at was not stamped');
 });

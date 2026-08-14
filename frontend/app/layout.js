@@ -57,6 +57,10 @@ function Sidebar({ user }) {
           <span className="nav-icon">📊</span>
           <span>Dashboard</span>
         </Link>
+        <Link href="/triage">
+          <span className="nav-icon">⚡</span>
+          <span>Today&apos;s Queue</span>
+        </Link>
         <Link href="/jobs">
           <span className="nav-icon">💼</span>
           <span>Jobs</span>

@@ -26,14 +26,21 @@ export async function query(text, params) {
  * `statuses` takes an array so grouped columns (e.g. Ready = scored +
  * resume_generated) filter in SQL rather than after truncation.
  */
-export async function getJobs(userEmail, { limit = 100, offset = 0, statuses, minScore } = {}) {
+export async function getJobs(
+  userEmail,
+  { limit = 100, offset = 0, applicationStates, pipelineState, minScore } = {}
+) {
   let sql = 'SELECT *, COUNT(*) OVER() AS total_count FROM jobs WHERE user_email = $1';
   const params = [userEmail];
   let paramIndex = 2;
 
-  if (statuses?.length) {
-    sql += ` AND status = ANY($${paramIndex++})`;
-    params.push(statuses);
+  if (applicationStates?.length) {
+    sql += ` AND application_state = ANY($${paramIndex++})`;
+    params.push(applicationStates);
+  }
+  if (pipelineState) {
+    sql += ` AND pipeline_state = $${paramIndex++}`;
+    params.push(pipelineState);
   }
   if (minScore) {
     sql += ` AND score >= $${paramIndex++}`;
@@ -74,15 +81,19 @@ export async function getJobVersions(company, role, userEmail) {
 }
 
 export async function getStats(userEmail) {
+  // resumes_generated counts files that actually exist. Reading it off a status
+  // value is what made the dashboard report 1 resume when 7 were on disk: the
+  // count vanished as soon as a job moved on to `applied`.
+  // avg/max/min ignore ineligible rows, whose score is 0 and would drag the mean.
   const [totals] = await query(`
-    SELECT 
+    SELECT
       COUNT(*) as total_jobs,
-      COUNT(CASE WHEN status = 'resume_generated' THEN 1 END) as resumes_generated,
-      COUNT(CASE WHEN status = 'scored' THEN 1 END) as scored,
-      COUNT(CASE WHEN status = 'ineligible' THEN 1 END) as ineligible,
-      ROUND(AVG(score)::numeric, 1) as avg_score,
-      MAX(score) as max_score,
-      MIN(CASE WHEN score > 0 THEN score END) as min_score
+      COUNT(resume_file_path) as resumes_generated,
+      COUNT(CASE WHEN application_state = 'none' AND pipeline_state = 'scored' THEN 1 END) as undecided,
+      COUNT(CASE WHEN pipeline_state = 'ineligible' THEN 1 END) as ineligible,
+      ROUND(AVG(score) FILTER (WHERE pipeline_state = 'scored')::numeric, 1) as avg_score,
+      MAX(score) FILTER (WHERE pipeline_state = 'scored') as max_score,
+      MIN(score) FILTER (WHERE pipeline_state = 'scored' AND score > 0) as min_score
     FROM jobs
     WHERE user_email = $1
   `, [userEmail]);
@@ -99,16 +110,17 @@ export async function getStats(userEmail) {
       END as range,
       COUNT(*) as count
     FROM jobs
-    WHERE score > 0 AND user_email = $1
+    WHERE score > 0 AND user_email = $1 AND pipeline_state = 'scored'
     GROUP BY range
     ORDER BY range DESC
   `, [userEmail]);
 
   const recentJobs = await query(`
-    SELECT id, company, role, score, match_level, status, created_at 
-    FROM jobs 
+    SELECT id, company, role, score, match_level,
+           pipeline_state, application_state, created_at
+    FROM jobs
     WHERE user_email = $1
-    ORDER BY created_at DESC 
+    ORDER BY created_at DESC
     LIMIT 5
   `, [userEmail]);
 
@@ -134,17 +146,92 @@ export async function updateProfile(userEmail, profileName, profileJson) {
 }
 
 /**
+ * Move a job through the application funnel.
+ *
  * Ownership is enforced in the UPDATE's own WHERE clause rather than by a
  * separate SELECT first — one statement, so there is no window between the
- * check and the write. Only `status` is writable here; the column list is
- * fixed, so a request body cannot reach user_email, score, or anything else.
+ * check and the write. Only application_state and reviewed_at are writable
+ * here; the column list is fixed, so a request body cannot reach user_email,
+ * score, or pipeline_state.
+ *
+ * Any move off 'none' is a decision, so it stamps reviewed_at and the job
+ * leaves the triage queue. Moving back to 'none' clears it and the job returns
+ * to the queue, which is what dragging a card back on the board should mean.
  */
-export async function updateJobStatus(id, status, userEmail) {
+export async function setApplicationState(id, applicationState, userEmail) {
   const rows = await query(
-    `UPDATE jobs SET status = $1, updated_at = NOW()
-     WHERE id = $2 AND user_email = $3
-     RETURNING id, status, updated_at`,
-    [status, id, userEmail]
+    // $1 is cast explicitly: it appears both as a column value and inside a
+    // comparison, and without the casts Postgres deduces conflicting types
+    // for the same parameter and rejects the statement.
+    `UPDATE jobs
+        SET application_state = $1::varchar,
+            reviewed_at = CASE
+              WHEN $1::varchar = 'none' THEN NULL::timestamp
+              ELSE COALESCE(reviewed_at, NOW())
+            END,
+            updated_at = NOW()
+      WHERE id = $2 AND user_email = $3
+      RETURNING id, application_state, reviewed_at, updated_at`,
+    [applicationState, id, userEmail]
+  );
+  return rows[0] || null;
+}
+
+/**
+ * The triage queue: highest-scoring jobs the user has not decided on yet.
+ *
+ * Ineligible jobs are excluded — there is nothing to decide. Unscored jobs sort
+ * last rather than first, which NULLS LAST guarantees regardless of the score
+ * column's nullability.
+ */
+export async function getTriageQueue(userEmail, limit = 10) {
+  return query(
+    `SELECT id, company, role, location, score, match_level, reasoning, hook,
+            job_description, source, source_url, resume_file_path, created_at
+       FROM jobs
+      WHERE user_email = $1
+        AND reviewed_at IS NULL
+        AND pipeline_state = 'scored'
+      ORDER BY score DESC NULLS LAST, created_at DESC
+      LIMIT $2`,
+    [userEmail, limit]
+  );
+}
+
+/** How many undecided jobs remain, so the queue can show progress. */
+export async function getTriageCount(userEmail) {
+  const [row] = await query(
+    `SELECT COUNT(*)::int AS remaining
+       FROM jobs
+      WHERE user_email = $1 AND reviewed_at IS NULL AND pipeline_state = 'scored'`,
+    [userEmail]
+  );
+  return row?.remaining ?? 0;
+}
+
+/**
+ * Skip: reviewed, but never applied to. Distinct from 'passed' only in intent —
+ * both mean "decided not to pursue" — so it records the same way and drops out
+ * of the queue.
+ */
+export async function skipJob(id, userEmail) {
+  const rows = await query(
+    `UPDATE jobs
+        SET application_state = 'passed', reviewed_at = COALESCE(reviewed_at, NOW()), updated_at = NOW()
+      WHERE id = $1 AND user_email = $2
+      RETURNING id, application_state, reviewed_at`,
+    [id, userEmail]
+  );
+  return rows[0] || null;
+}
+
+/** Record a generated resume against a job. Used by the lazy generation path. */
+export async function setResumePath(id, resumeFilePath, userEmail) {
+  const rows = await query(
+    `UPDATE jobs SET resume_file_path = $1, updated_at = NOW()
+      WHERE id = $2 AND user_email = $3
+      RETURNING id, resume_file_path`,
+    [resumeFilePath, id, userEmail]
   );
   return rows[0] || null;
 }

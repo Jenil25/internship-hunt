@@ -9,9 +9,10 @@ const PAGE_SIZE = 25;
 // at once so it cannot page; past this it says so rather than silently dropping rows.
 const BOARD_WINDOW = 200;
 
-// Filter key -> the statuses it selects. Kept in sync with the board columns.
+// Filter key -> the application states it selects. Kept in sync with the board.
+// 'ready' means undecided: scored but not yet acted on.
 const STATUS_FILTERS = {
-  ready: ['scored', 'resume_generated'],
+  ready: ['none'],
   applied: ['applied'],
   interviewing: ['interviewing'],
 };
@@ -26,7 +27,7 @@ export default async function JobsPage({ searchParams }) {
   const page = Math.max(1, parseInt(sp.page, 10) || 1);
 
   const filters = {
-    statuses: STATUS_FILTERS[statusFilter],
+    applicationStates: STATUS_FILTERS[statusFilter],
     minScore: scoreFilter ? 80 : undefined,
   };
 
