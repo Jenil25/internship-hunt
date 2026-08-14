@@ -49,7 +49,10 @@ export async function POST(request) {
           experience: [],
           projects: [],
           skills: { languages: [], frameworks: [], tools: [] },
-          config: { min_score: 65, generate_cover_letter: false },
+          // 101 = never pre-generate at scrape time. Resumes are generated when
+          // the user hits Apply, so a new account does not spend Gemini calls on
+          // jobs it will never apply to.
+          config: { min_score: 101, generate_cover_letter: false },
         }),
       ]
     );

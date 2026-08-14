@@ -15,9 +15,32 @@ export default function TriageQueue({ initialJobs, remaining, batchSize }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [decided, setDecided] = useState(0);
+  // Resume generation runs after the card has already advanced, so its progress
+  // and failures need somewhere to show that is not the current card.
+  const [resumes, setResumes] = useState([]);
   const router = useRouter();
 
   const job = queue[index];
+
+  /**
+   * Kick off generation without blocking the queue. Applying is the decision
+   * that matters and it is already saved; a Gemini or LaTeX outage should slow
+   * nothing down and lose nothing.
+   */
+  function generateResume(target) {
+    const key = target.id;
+    setResumes(rs => [{ key, company: target.company, state: 'working' }, ...rs.filter(r => r.key !== key)].slice(0, 4));
+
+    fetch(`/api/resume/${target.id}/generate`, { method: 'POST' })
+      .then(async res => {
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || `Server returned ${res.status}`);
+        setResumes(rs => rs.map(r => r.key === key ? { ...r, state: 'done' } : r));
+      })
+      .catch(e => {
+        setResumes(rs => rs.map(r => r.key === key ? { ...r, state: 'failed', message: e.message } : r));
+      });
+  }
 
   async function decide(decision) {
     if (!job || busy) return;
@@ -30,6 +53,10 @@ export default function TriageQueue({ initialJobs, remaining, batchSize }) {
         body: JSON.stringify({ decision }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Server returned ${res.status}`);
+
+      // Only an application needs a tailored resume. Skips cost nothing, which
+      // is the entire point of generating here instead of at scrape time.
+      if (decision === 'apply' && !job.resume_file_path) generateResume(job);
 
       setDecided(d => d + 1);
       if (index + 1 < queue.length) {
@@ -62,6 +89,7 @@ export default function TriageQueue({ initialJobs, remaining, batchSize }) {
           <Link href="/jobs" className="btn btn-secondary">View Board</Link>
           <Link href="/upload" className="btn btn-primary">Upload a JD</Link>
         </div>
+        <ResumeStatus items={resumes} />
       </div>
     );
   }
@@ -132,6 +160,34 @@ export default function TriageQueue({ initialJobs, remaining, batchSize }) {
           <Link href={`/jobs/${job.id}`}>Full details →</Link>
         </div>
       </div>
+
+      <ResumeStatus items={resumes} />
+    </div>
+  );
+}
+
+/**
+ * Generation happens after the card has moved on, so results land here rather
+ * than on the job being decided. A failure names the job so it can be retried
+ * from that job's page.
+ */
+function ResumeStatus({ items }) {
+  if (!items.length) return null;
+  const label = {
+    working: { icon: '⏳', text: 'generating resume…' },
+    done: { icon: '✅', text: 'resume ready' },
+    failed: { icon: '⚠️', text: 'resume failed' },
+  };
+  return (
+    <div className="triage-resumes">
+      {items.map(r => (
+        <div key={r.key} className={`triage-resume-row is-${r.state}`}>
+          <span>{label[r.state].icon}</span>
+          <span><strong>{r.company}</strong> — {label[r.state].text}</span>
+          {r.state === 'failed' && <span className="triage-resume-msg">{r.message}</span>}
+          {r.state !== 'working' && <Link href={`/jobs/${r.key}`}>open →</Link>}
+        </div>
+      ))}
     </div>
   );
 }

@@ -1804,3 +1804,38 @@ a.job-link:hover {
     text-align: left;
   }
 }
+
+.triage-resumes {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.triage-resume-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.triage-resume-row.is-failed {
+  border-color: var(--error);
+}
+
+.triage-resume-msg {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.triage-resume-row a {
+  margin-left: auto;
+  color: var(--accent-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}

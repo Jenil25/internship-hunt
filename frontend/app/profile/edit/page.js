@@ -678,17 +678,23 @@ export default function ProfileEditPage() {
         <div className="card" style={{ maxWidth: '500px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>Pipeline Configuration</h3>
           <div className="form-group">
-            <label>Minimum Match Score</label>
+            <label>Scrape-time resume threshold</label>
             <input
               className="form-input"
               type="number"
               min="0"
-              max="100"
-              value={config.min_score || 70}
+              max="101"
+              value={config.min_score ?? 101}
               onChange={e => updateConfig('min_score', parseInt(e.target.value) || 0)}
             />
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Jobs scoring below this will be rejected and not generate a resume (current: {config.min_score || 70})
+              {(config.min_score ?? 101) > 100
+                ? 'Off — resumes are generated when you hit Apply, not when a job is scraped. Recommended.'
+                : `The scraper will pre-generate a resume for every job scoring above ${config.min_score}. Set to 101 to turn this off and generate on Apply instead.`}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+              Jobs below this score are still saved and still appear in your queue — this only controls
+              whether a resume is written up front.
             </div>
           </div>
 

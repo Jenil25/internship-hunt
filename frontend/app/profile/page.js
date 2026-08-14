@@ -221,12 +221,14 @@ export default async function ProfilePage() {
           <div className="card" style={{ marginBottom: '24px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>⚙️ Config</h3>
             <div className="detail-field">
-              <div className="field-label">Minimum Score Threshold</div>
+              <div className="field-label">Scrape-time resume threshold</div>
               <div className="field-value">
-                <span className="score-pill score-mid">{config.min_score || 70}</span>
+                {(config.min_score ?? 101) > 100
+                  ? <span className="badge badge-neutral">Off — generated on Apply</span>
+                  : <span className="score-pill score-mid">{config.min_score}</span>}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Jobs below this score are rejected
+                Controls whether the scraper pre-generates resumes. Jobs are saved either way.
               </div>
             </div>
           </div>
