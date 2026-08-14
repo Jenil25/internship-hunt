@@ -251,27 +251,36 @@ export default function KanbanDashboard({ initialJobs, total, view, page, pageSi
         flexWrap: 'wrap',
         gap: '16px',
       }}>
-        {/* Quick Filter Buttons */}
+        {/* Stage and score are independent filters, so each link changes only
+            its own parameter and leaves the other alone — "Applied AND 80+" is
+            reachable. Previously picking a stage cleared the score and picking
+            the score reset the stage to All, so they could never combine. */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
           {[
-            { key: 'all', score: false, label: 'All' },
-            { key: 'ready', score: false, label: '📄 Ready' },
-            { key: 'applied', score: false, label: '📤 Applied' },
-            { key: 'interviewing', score: false, label: '🎙️ Interviewing' },
-            { key: 'all', score: true, label: '🔥 Score 80+' },
-          ].map(f => {
-            const active = f.score ? scoreFilter : statusFilter === f.key && !scoreFilter;
-            return (
-              <Link
-                key={f.label}
-                href={hrefWith({ status: f.key, score: f.score ? '80' : null, page: 1 })}
-                scroll={false}
-                className={`btn btn-sm ${active ? 'btn-primary' : 'btn-secondary'}`}
-              >
-                {f.label}
-              </Link>
-            );
-          })}
+            { key: 'all', label: 'All' },
+            { key: 'ready', label: '📄 To Review' },
+            { key: 'applied', label: '📤 Applied' },
+            { key: 'interviewing', label: '🎙️ Interviewing' },
+          ].map(f => (
+            <Link
+              key={f.key}
+              href={hrefWith({ status: f.key, page: 1 })}
+              scroll={false}
+              className={`btn btn-sm ${statusFilter === f.key ? 'btn-primary' : 'btn-secondary'}`}
+            >
+              {f.label}
+            </Link>
+          ))}
+
+          <span style={{ width: '1px', height: '20px', background: 'var(--border)', margin: '0 4px' }} />
+
+          <Link
+            href={hrefWith({ score: scoreFilter ? null : '80', page: 1 })}
+            scroll={false}
+            className={`btn btn-sm ${scoreFilter ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            🔥 Score 80+{scoreFilter ? ' ✕' : ''}
+          </Link>
         </div>
 
         {/* Board / Table Switcher */}

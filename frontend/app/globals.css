@@ -1342,9 +1342,10 @@ a.job-link:hover {
 .kanban-board {
   display: grid;
   /* Columns must live here rather than as an inline style, or no media query
-     below can reach them. auto-fit + minmax keeps a column readable: it drops
-     to fewer columns instead of squeezing six into 390px. */
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+     below can reach them. Explicit counts rather than auto-fit: with auto-fit
+     the sixth column wrapped onto its own row at 1440px, which reads as a
+     second board rather than one more stage. */
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
   align-items: start;
   padding-bottom: 16px;
@@ -1421,6 +1422,14 @@ a.job-link:hover {
   opacity: 0.75;
 }
 
+/* Six columns need room. Below this the board goes to two rows of three
+   rather than shrinking every card past readability. */
+@media (max-width: 1500px) {
+  .kanban-board {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 /* Mobile responsive selector on Kanban cards */
 @media (max-width: 1024px) {
   .mobile-only-controls {
@@ -1430,7 +1439,7 @@ a.job-link:hover {
   /* One column on a phone. Dragging between columns is not usable at this
      size anyway — the per-card status select is the control here. */
   .kanban-board {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
     min-height: 0;
   }
 
@@ -1838,4 +1847,22 @@ a.job-link:hover {
   color: var(--accent-primary);
   text-decoration: none;
   white-space: nowrap;
+}
+
+.resumes-search {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+  max-width: 520px;
+}
+
+.resumes-search .form-input {
+  flex: 1;
+}
+
+.resumes-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
 }
