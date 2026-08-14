@@ -15,7 +15,20 @@ const DEMO_EMAIL = 'demo@applai.dev';
 const DEMO_PASSWORD = 'demo1234';
 const DEMO_NAME = 'Alex Demo';
 
-const isLocal = /^(localhost|127\.0\.0\.1|::1)$/.test(process.env.PG_HOST || '');
+const isLocal = /^(localhost|127\.0\.0\.1|::1|postgres-local)$/.test(process.env.PG_HOST || '');
+
+// This script DELETEs and reinserts rows. It must never be able to reach a
+// hosted database, however it is invoked (--env-file=.env.production, a stray
+// PG_HOST export, a copied .env). There is deliberately no override flag:
+// seeding a remote DB is never the intent, so refuse rather than offer an escape.
+if (!isLocal) {
+  console.error(
+    `refusing to seed: PG_HOST is "${process.env.PG_HOST || '(unset)'}", which is not a local host.\n` +
+    `  seed-demo.js only runs against localhost / 127.0.0.1 / ::1 / postgres-local.\n` +
+    `  start the container and retry:  docker start postgres-local`
+  );
+  process.exit(1);
+}
 
 const pool = new Pool({
   host: process.env.PG_HOST,
