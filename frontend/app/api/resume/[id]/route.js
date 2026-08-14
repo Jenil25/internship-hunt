@@ -1,4 +1,4 @@
-import { getJobById } from '@/lib/db';
+import { requireOwnedJob } from '@/lib/auth';
 import { getS3Object, parseS3Key, uploadToS3 } from '@/lib/s3';
 import { NextResponse } from 'next/server';
 import fs from 'fs';
@@ -7,10 +7,25 @@ import path from 'path';
 // Local fallback for legacy files
 const FILES_BASE = process.env.FILES_BASE_PATH || './local_files';
 
+/**
+ * Join under `base` and return null if the result escapes it.
+ *
+ * Both `company` and `resume_file_path` come from the database, written by the
+ * AI parsing stage — not typed by the requester, but not trustworthy as path
+ * segments either. A company parsed as "../../etc" would otherwise walk out of
+ * FILES_BASE. Checking the resolved path covers every segment at once instead
+ * of sanitizing each input separately.
+ */
+function resolveInside(base, ...parts) {
+  const root = path.resolve(base);
+  const full = path.resolve(root, ...parts);
+  return full === root || full.startsWith(root + path.sep) ? full : null;
+}
+
 function getLocalFallbackPath(filesBase, company, format) {
   const ext = format === 'pdf' ? 'pdf' : 'tex';
-  if (!company) return path.join(filesBase, `master_resume.${ext}`);
-  
+  if (!company) return resolveInside(filesBase, `master_resume.${ext}`);
+
   const cleanCompanyNames = [
     company,
     company.replace(/\s+/g, ''),
@@ -19,21 +34,21 @@ function getLocalFallbackPath(filesBase, company, format) {
 
   for (const name of cleanCompanyNames) {
     const candidates = [
-      path.join(filesBase, 'output', `Resume_${name}.${ext}`),
-      path.join(filesBase, 'output', name, 'v1', `Resume_${name}.${ext}`),
-      path.join(filesBase, 'resumes', `Resume_${name}.${ext}`),
+      resolveInside(filesBase, 'output', `Resume_${name}.${ext}`),
+      resolveInside(filesBase, 'output', name, 'v1', `Resume_${name}.${ext}`),
+      resolveInside(filesBase, 'resumes', `Resume_${name}.${ext}`),
     ];
 
     for (const file of candidates) {
-      if (fs.existsSync(file)) {
+      if (file && fs.existsSync(file)) {
         return file;
       }
     }
   }
 
   // Baseline fallback to master resume
-  const masterFile = path.join(filesBase, `master_resume.${ext}`);
-  if (fs.existsSync(masterFile)) {
+  const masterFile = resolveInside(filesBase, `master_resume.${ext}`);
+  if (masterFile && fs.existsSync(masterFile)) {
     return masterFile;
   }
 
@@ -47,7 +62,8 @@ export async function GET(request, { params }) {
   const inline = searchParams.get('mode') === 'inline';
   const disposition = inline ? 'inline' : 'attachment';
 
-  const job = await getJobById(id);
+  // Same 404 whether the job is missing or owned by someone else.
+  const job = await requireOwnedJob(id);
   if (!job || !job.resume_file_path) {
     return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
   }
@@ -102,7 +118,10 @@ export async function GET(request, { params }) {
     relativePath = relativePath.replace('.tex', '.pdf');
   }
 
-  const filePath = path.join(FILES_BASE, relativePath);
+  const filePath = resolveInside(FILES_BASE, relativePath);
+  if (!filePath) {
+    return NextResponse.json({ error: 'File not found' }, { status: 404 });
+  }
 
   if (!fs.existsSync(filePath)) {
     if (format === 'pdf') {
@@ -149,7 +168,9 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'LaTeX content is required' }, { status: 400 });
     }
 
-    const job = await getJobById(id);
+    // This route OVERWRITES the stored .tex and recompiles the PDF, so the
+    // ownership gate matters more here than on the download path.
+    const job = await requireOwnedJob(id);
     if (!job || !job.resume_file_path) {
       return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
     }
@@ -202,8 +223,11 @@ export async function POST(request, { params }) {
           const relativeTexPath = `output/Resume_${cleanName}.tex`;
           const relativePdfPath = `output/Resume_${cleanName}.pdf`;
 
-          const localTexPath = path.join(FILES_BASE, relativeTexPath);
-          const localPdfPath = path.join(FILES_BASE, relativePdfPath);
+          const localTexPath = resolveInside(FILES_BASE, relativeTexPath);
+          const localPdfPath = resolveInside(FILES_BASE, relativePdfPath);
+          if (!localTexPath || !localPdfPath) {
+            return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
+          }
           const dirPath = path.dirname(localTexPath);
 
           // Make sure directory exists
@@ -252,7 +276,10 @@ export async function POST(request, { params }) {
 
     // ─── Local Path (legacy jobs) ───
     const relativePath = resumePath.replace(/^\/files\//, '');
-    const filePath = path.join(FILES_BASE, relativePath);
+    const filePath = resolveInside(FILES_BASE, relativePath);
+    if (!filePath) {
+      return NextResponse.json({ error: 'Resume not found' }, { status: 404 });
+    }
     const dirPath = path.dirname(filePath);
 
     // Make sure directories exist

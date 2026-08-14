@@ -7,7 +7,7 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
-import { query } from '@/lib/db';
+import { query, getJobById } from '@/lib/db';
 import { authConfig } from '@/lib/auth.config';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -37,3 +37,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
 });
+
+/**
+ * The single ownership gate for anything addressed by job id.
+ *
+ * Returns the job only if the signed-in user owns it, and null otherwise —
+ * collapsing "not signed in", "no such job", and "someone else's job" into one
+ * indistinguishable outcome. Callers return 404 for null (never 403), so the
+ * response cannot be used to probe which ids exist.
+ *
+ * The owner identity comes from the session, never from the request, so a
+ * client-supplied user id or email has no effect on what is returned.
+ *
+ * New routes that take a job id should call this rather than getJobById.
+ */
+export async function requireOwnedJob(id) {
+  const session = await auth();
+  if (!session?.user?.email) return null;
+  return getJobById(id, session.user.email);
+}

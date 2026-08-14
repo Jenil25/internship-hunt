@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --test tests/*.test.mjs",
     "seed:demo": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/seed-demo.js"
   },
   "dependencies": {

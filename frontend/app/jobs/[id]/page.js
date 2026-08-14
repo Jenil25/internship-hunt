@@ -1,4 +1,5 @@
-import { getJobById, getJobVersions } from '@/lib/db';
+import { getJobVersions } from '@/lib/db';
+import { requireOwnedJob } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import StatusDropdown from '@/app/components/StatusDropdown';
@@ -15,12 +16,14 @@ function getScoreClass(score) {
 
 export default async function JobDetailPage({ params }) {
   const { id } = await params;
-  const job = await getJobById(id);
-  const versions = job ? await getJobVersions(job.company, job.role, job.user_email) : [];
-
+  // notFound() for someone else's job too — a 404 either way, so the page
+  // cannot be used to confirm an id exists.
+  const job = await requireOwnedJob(id);
   if (!job) {
     notFound();
   }
+
+  const versions = await getJobVersions(job.company, job.role, job.user_email);
 
   let reasoning = null;
   if (job.reasoning) {

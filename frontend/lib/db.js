@@ -49,8 +49,20 @@ export async function getJobs(userEmail, { limit = 100, offset = 0, statuses, mi
   return { jobs: rows.map(({ total_count, ...job }) => job), total };
 }
 
-export async function getJobById(id) {
-  const rows = await query('SELECT * FROM jobs WHERE id = $1', [id]);
+/**
+ * Fetch a job the caller owns. `userEmail` is required and always part of the
+ * WHERE clause — a caller that forgets it sends NULL, `user_email = NULL` is
+ * never true, and the result is zero rows. Fail-closed by construction, so a
+ * future caller cannot accidentally read across accounts.
+ *
+ * Callers should treat null as "not found" and return 404 without
+ * distinguishing "wrong owner" from "no such id" — see requireOwnedJob().
+ */
+export async function getJobById(id, userEmail) {
+  const rows = await query(
+    'SELECT * FROM jobs WHERE id = $1 AND user_email = $2',
+    [id, userEmail]
+  );
   return rows[0] || null;
 }
 
@@ -121,10 +133,18 @@ export async function updateProfile(userEmail, profileName, profileJson) {
   return rows[0] || null;
 }
 
-export async function updateJobStatus(id, status) {
+/**
+ * Ownership is enforced in the UPDATE's own WHERE clause rather than by a
+ * separate SELECT first — one statement, so there is no window between the
+ * check and the write. Only `status` is writable here; the column list is
+ * fixed, so a request body cannot reach user_email, score, or anything else.
+ */
+export async function updateJobStatus(id, status, userEmail) {
   const rows = await query(
-    'UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
-    [status, id]
+    `UPDATE jobs SET status = $1, updated_at = NOW()
+     WHERE id = $2 AND user_email = $3
+     RETURNING id, status, updated_at`,
+    [status, id, userEmail]
   );
   return rows[0] || null;
 }
